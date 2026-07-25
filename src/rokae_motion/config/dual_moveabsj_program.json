@@ -1,0 +1,12 @@
+{
+  "replace_before_use": true,
+  "description": "Replace every null with a live joint angle in radians, then set replace_before_use to false.",
+  "steps": [
+    {
+      "name": "step_1",
+      "left": [null, null, null, null, null, null, null],
+      "right": [null, null, null, null, null, null, null],
+      "wait_after_s": 1.0
+    }
+  ]
+}
