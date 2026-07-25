@@ -6,7 +6,7 @@
     Python MoveAbsJ action clients and dual-arm motion programs for Rokae.
   </description>
 
-  <maintainer email="niic@localhost">niic</maintainer>
+  <maintainer email="tolbayoma6@gmail.com">niic</maintainer>
   <license>Proprietary</license>
 
   <buildtool_depend>ament_python</buildtool_depend>

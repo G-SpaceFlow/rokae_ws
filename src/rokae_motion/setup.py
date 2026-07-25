@@ -26,7 +26,7 @@ setup(
     install_requires=["setuptools"],
     zip_safe=True,
     maintainer="niic",
-    maintainer_email="niic@localhost",
+    maintainer_email="tolbayoma6@gmail.com",
     description=(
         "Python MoveAbsJ action clients and dual-arm motion programs."
     ),
