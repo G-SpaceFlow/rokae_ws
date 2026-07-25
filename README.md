@@ -26,13 +26,20 @@ colcon build --symlink-install
 source install/setup.bash
 ```
 
-If the SDK contains several operating-system or architecture libraries, select
-the Linux library explicitly:
+The driver selects `lib/Linux/aarch64` or `lib/Linux/x86_64` from the target
+processor reported by CMake. Check the robot computer architecture with:
+
+```bash
+uname -m
+```
+
+For an unsupported or cross-compiled target, select the exact Linux library
+explicitly:
 
 ```bash
 colcon build --symlink-install --cmake-args \
   -DROKAE_SDK_ROOT="/home/niic/cxl/xCoreSDK-v0.7.1.ar_6" \
-  -DXCORESDK_LIBRARY=/absolute/path/to/libxCoreSDK.so
+  -DXCORESDK_LIBRARY=/absolute/path/to/libxCoreSDK.a
 ```
 
 ## Start

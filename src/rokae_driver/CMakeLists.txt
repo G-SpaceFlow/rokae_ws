@@ -53,9 +53,8 @@ if(NOT EXISTS "${ROKAE_SDK_ROOT}/external")
     "The SDK Eigen headers are required.")
 endif()
 
-# A caller can select an exact library when the SDK contains several
-# operating-system or architecture variants:
-#   -DXCORESDK_LIBRARY=/absolute/path/to/libxCoreSDK.so
+# A caller can override architecture detection and select an exact library:
+#   -DXCORESDK_LIBRARY=/absolute/path/to/libxCoreSDK.a
 set(
   XCORESDK_LIBRARY
   ""
@@ -64,25 +63,47 @@ set(
 )
 
 if(NOT XCORESDK_LIBRARY)
-  file(GLOB_RECURSE XCORESDK_LIBRARY_CANDIDATES
-    LIST_DIRECTORIES false
-    "${ROKAE_SDK_ROOT}/lib/libxCoreSDK.so"
-    "${ROKAE_SDK_ROOT}/lib/libxCoreSDK.a"
+  string(TOLOWER
+    "${CMAKE_SYSTEM_PROCESSOR}"
+    XCORESDK_SYSTEM_PROCESSOR
   )
 
-  list(LENGTH XCORESDK_LIBRARY_CANDIDATES XCORESDK_LIBRARY_COUNT)
-  if(XCORESDK_LIBRARY_COUNT EQUAL 0)
+  if(XCORESDK_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    set(XCORESDK_ARCHITECTURE "aarch64")
+  elseif(XCORESDK_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
+    set(XCORESDK_ARCHITECTURE "x86_64")
+  else()
     message(FATAL_ERROR
-      "No libxCoreSDK.so or libxCoreSDK.a was found below "
-      "${ROKAE_SDK_ROOT}/lib.")
-  elseif(XCORESDK_LIBRARY_COUNT GREATER 1)
-    message(FATAL_ERROR
-      "Multiple xCoreSDK libraries were found: "
-      "${XCORESDK_LIBRARY_CANDIDATES}. Select the Linux library with "
-      "-DXCORESDK_LIBRARY=/absolute/path/to/libxCoreSDK.so")
+      "Unsupported target processor '${CMAKE_SYSTEM_PROCESSOR}'. "
+      "Select the matching SDK library explicitly with "
+      "-DXCORESDK_LIBRARY=/absolute/path/to/libxCoreSDK.a")
   endif()
 
-  list(GET XCORESDK_LIBRARY_CANDIDATES 0 XCORESDK_LIBRARY)
+  set(
+    XCORESDK_ARCH_LIBRARY_DIR
+    "${ROKAE_SDK_ROOT}/lib/Linux/${XCORESDK_ARCHITECTURE}"
+  )
+
+  # Prefer a shared library when the SDK provides both forms. The current
+  # xCoreSDK-v0.7.1 package normally provides only the static archive.
+  if(EXISTS "${XCORESDK_ARCH_LIBRARY_DIR}/libxCoreSDK.so")
+    set(
+      XCORESDK_LIBRARY
+      "${XCORESDK_ARCH_LIBRARY_DIR}/libxCoreSDK.so"
+    )
+  elseif(EXISTS "${XCORESDK_ARCH_LIBRARY_DIR}/libxCoreSDK.a")
+    set(
+      XCORESDK_LIBRARY
+      "${XCORESDK_ARCH_LIBRARY_DIR}/libxCoreSDK.a"
+    )
+  else()
+    message(FATAL_ERROR
+      "No xCoreSDK library was found for target processor "
+      "'${CMAKE_SYSTEM_PROCESSOR}'. Expected libxCoreSDK.so or "
+      "libxCoreSDK.a in ${XCORESDK_ARCH_LIBRARY_DIR}. "
+      "Override detection with "
+      "-DXCORESDK_LIBRARY=/absolute/path/to/libxCoreSDK.a")
+  endif()
 endif()
 
 if(NOT EXISTS "${XCORESDK_LIBRARY}")
@@ -97,6 +118,7 @@ get_filename_component(
 )
 
 message(STATUS "ROKAE_SDK_ROOT=${ROKAE_SDK_ROOT}")
+message(STATUS "CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}")
 message(STATUS "XCORESDK_LIBRARY=${XCORESDK_LIBRARY}")
 
 add_library(Rokae::xCoreSDK UNKNOWN IMPORTED)
