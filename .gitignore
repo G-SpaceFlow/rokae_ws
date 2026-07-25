@@ -1,0 +1,10 @@
+build/
+install/
+log/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+_rokae_log_/
+*.log
+.vscode/
