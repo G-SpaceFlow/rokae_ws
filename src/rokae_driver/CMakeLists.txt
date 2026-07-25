@@ -129,7 +129,9 @@ set_target_properties(Rokae::xCoreSDK PROPERTIES
 )
 
 function(configure_rokae_target target_name)
-  target_link_libraries(${target_name} PRIVATE
+  # ament_target_dependencies() uses the plain target_link_libraries
+  # signature on ROS 2 Humble, so this target must use the same signature.
+  target_link_libraries(${target_name}
     Rokae::xCoreSDK
     Threads::Threads
   )
