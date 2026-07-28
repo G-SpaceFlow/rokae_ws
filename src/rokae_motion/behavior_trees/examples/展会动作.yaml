@@ -54,8 +54,8 @@ tasks:
                 relative_offset:
                   # dx/dy/dz 为相对视觉点的位置偏移；
                   # rx/ry/rz 为左右臂各自的绝对目标姿态（弧度）。
-                  left: {dx: 0.0, dy: 0.1, dz: 0.03, rx: 2.606341, ry: -0.752082, rz: 0.461936}
-                  right: {dx: 0.0, dy: -0.15, dz: 0.03, rx: -2.581585, ry: -0.830764, rz: -0.407993}
+                  left: {dx: 0.0, dy: 0.1, dz: 0.01, rx: 2.606341, ry: -0.752082, rz: 0.461936}
+                  right: {dx: 0.0, dy: -0.15, dz: 0.01, rx: -2.581585, ry: -0.830764, rz: -0.407993}
 
                 speed_mm_s: 30.0
                 zone_mm: 0.0
@@ -81,7 +81,7 @@ tasks:
                 relative_offset:
                   rotate_with_waist: false
                   left:
-                    dy: -0.07
+                    dy: -0.08
                   right:
                     dy: 0.05
                 speed_mm_s: 30.0
@@ -136,7 +136,7 @@ tasks:
                   left:
                     dy: 0.07
                   right:
-                    dy: 0.05
+                    dy: -0.05
                 speed_mm_s: 30.0
                 zone_mm: 0.0
                 response_timeout_s: 70.0
@@ -148,16 +148,25 @@ tasks:
           - id: behavior_001
             name: basic_motion_sequence
             actions:
-              - id: detect_tool_pose
-                name: cache_aruco_tool_pose
-                label: 视觉识别：缓存二维码工具位姿
-                echo_topic: /tool/pose
-                pub_topic: /aruco/enable
+              - id: action_001
+                name: move_to_dual_arm_joint_target
+                type: move_absj
+                enabled: true
+                targets:
+                  left: [1.087477, 1.302845, -1.566667, 0.609269, -0.353221, -0.250497, -0.255990]
+                  right: [-1.234836, 1.254863, 1.329129, 0.628046, 0.481215, -0.425924, 0.046539]
+
+
+              - id: detect_small_box
+                name: cache_small_box_target
+                label: 视觉识别：缓存小盒子位姿
+                echo_topic: /small_box/target
+                pub_topic: /small_box/enable
                 type: vision
-                source: aruco
+                source: small_box_target
                 key: "1-1-1-2"
                 trigger_value: 1
-                points: ["tool"]
+                points: ["center"]
                 optional: false
 
 
@@ -169,23 +178,34 @@ tasks:
                   right: [-1.649665, 1.294103, 1.275071, 1.408305, -0.647243, 0.252457, -0.103705]
 
 
-              - id: move_above_tool
-                name: right_arm_moveL_above_tool
-                label: 右臂移动到二维码工具点上方
+              - id: move_above_small_box
+                name: right_arm_moveL_above_small_box
+                label: 右臂移动到小盒子上方
                 type: move_l_vision
                 enabled: true
                 optional: false
-                # 使用 /tool/pose 缓存的 tool 点，不重新触发识别。
+                # 使用 /small_box/target 缓存的 center 点。
                 base_key: "1-1-1-2"
                 motion_mode: 3
-                points: ["tool"]
+                points: ["center"]
                 relative_offset:
-                  # 目标位置 = tool 位姿位置 + 以下偏移；
+                  # 目标位置 = center 坐标 + 以下偏移；
                   # rx/ry/rz 是右臂的绝对目标姿态（弧度）。
-                  right: {dx: -0.10, dy: -0.01, dz: 0.20, rx: 1.899444, ry: -0.133504, rz: 1.682983}
+                  right: {dx: -0.06, dy: -0.07, dz: 0.15, rx: 1.899444, ry: -0.133504, rz: 1.682983}
                 speed_mm_s: 30.0
                 zone_mm: 0.0
                 response_timeout_s: 70.0
+
+
+              - id: hand_1
+                name: set_dual_hand_motor_positions
+                type: hand
+                command: motors
+                targets:
+                  # M1-M6: thumb bend, thumb side swing, index, middle,
+                  # ring and little-finger bend.
+                  # left: [160, 160, 160, 160, 160, 160]
+                  right: [254, 1, 230, 230, 230, 230]
 
 
               - id: action_004
@@ -247,7 +267,7 @@ tasks:
                   # M1-M6: thumb bend, thumb side swing, index, middle,
                   # ring and little-finger bend.
                   # left: [160, 160, 160, 160, 160, 160]
-                  right: [254, 1, 254, 254, 254, 254]
+                  right: [254, 200, 254, 254, 254, 254]
 
 
 

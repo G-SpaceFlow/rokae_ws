@@ -9,7 +9,7 @@
 #   4 = one point used by target/current point-delta correction
 #   5 = one point used by independent left/right point-delta correction
 #   6 = one scalar value encoded in left_pose.position.x
-# source: "yolo", "aruco", or "box_grab_points".
+# source: "yolo", "aruco", "box_grab_points", or "small_box_target".
 string source
 string echo_topic
 string pub_topic

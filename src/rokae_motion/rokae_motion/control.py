@@ -40,7 +40,7 @@ WORKFLOW = [
         "steps": [
             {
                 "task_id": "task_001",
-                "location_id": "location_001",
+                "location_id": "location_002",
                 "behavior_id": "behavior_001",
                 # "action_id": "action_004",
             },

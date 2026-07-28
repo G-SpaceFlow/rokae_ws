@@ -38,6 +38,9 @@ An ArUco tool-pose action uses `source: aruco`,
 and one named point such as `points: [tool]`. A two-point box action uses
 `source: box_grab_points`, `echo_topic: /box_grab_points`,
 `pub_topic: /box/enable`, and `points: [left_center, right_center]`.
+The single-point small-box action uses `source: small_box_target`,
+`echo_topic: /small_box/target`, `pub_topic: /small_box/enable`, and
+`points: [center]`.
 The visual action only caches data; `motion_mode` belongs to the later
 `move_l_vision` action. The server keeps sampling for one second after the
 first result and caches the newest complete `base_link` data before disabling

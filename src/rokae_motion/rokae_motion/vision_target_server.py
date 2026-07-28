@@ -2,9 +2,9 @@
 """ROS 2 detector trigger, target-pose cache and offset service.
 
 This is the Rokae ROS 2 port of ``zj_robot_bt_action/bt_target_server.py``.
-It stores JSON detections and ArUco PoseStamped results in memory and exposes
-selected poses to behavior-tree actions. It does not run a detector or save
-camera images.
+It stores JSON detections, ArUco poses and typed box targets in memory and
+exposes selected poses to behavior-tree actions. It does not run a detector
+or save camera images.
 """
 
 import copy
@@ -15,7 +15,7 @@ import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-from box_detection_interfaces.msg import BoxGrabPoints
+from box_detection_interfaces.msg import BoxGrabPoints, SmallBoxTarget
 from geometry_msgs.msg import Pose, PoseStamped
 import rclpy
 from rclpy.callback_groups import ReentrantCallbackGroup
@@ -37,12 +37,15 @@ ARUCO_CONTROL_TOPIC = "/aruco/enable"
 ARUCO_POSE_TOPIC = "/tool/pose"
 BOX_CONTROL_TOPIC = "/box/enable"
 BOX_POINTS_TOPIC = "/box_grab_points"
+SMALL_BOX_CONTROL_TOPIC = "/small_box/enable"
+SMALL_BOX_TARGET_TOPIC = "/small_box/target"
 TRIGGER_DETECT_SERVICE = "/bt_target_server/trigger_detect"
 GET_TARGET_SERVICE = "/bt_target_server/get_target"
 SET_OFFSET_SERVICE = "/bt_target_server/set_offset"
 VISION_SOURCE_YOLO = "yolo"
 VISION_SOURCE_ARUCO = "aruco"
 VISION_SOURCE_BOX_GRAB_POINTS = "box_grab_points"
+VISION_SOURCE_SMALL_BOX_TARGET = "small_box_target"
 
 
 class VisionTargetServer(Node):
@@ -56,8 +59,8 @@ class VisionTargetServer(Node):
         self._init_interfaces()
         self.get_logger().info(
             "vision target services ready: YOLO JSON, ArUco tool pose, "
-            "and box left/right points; trigger_detect, get_target, "
-            "set_offset"
+            "box left/right points, and small-box center; "
+            "trigger_detect, get_target, set_offset"
         )
 
     def _init_state(self) -> None:
@@ -74,10 +77,15 @@ class VisionTargetServer(Node):
         self.latest_box_points: Dict[
             str, Optional[BoxGrabPoints]
         ] = {}
+        self.latest_small_box_targets: Dict[
+            str, Optional[SmallBoxTarget]
+        ] = {}
         self.aruco_pose_subscriptions = {}
         self.aruco_control_publishers = {}
         self.box_point_subscriptions = {}
         self.box_control_publishers = {}
+        self.small_box_subscriptions = {}
+        self.small_box_control_publishers = {}
         self.offset_map = {"default": self._identity_offset()}
         self.active_offset_id = "default"
 
@@ -101,6 +109,7 @@ class VisionTargetServer(Node):
         self.declare_parameter("aruco_pose_topic", ARUCO_POSE_TOPIC)
         self.declare_parameter("aruco_frame_id", "base_link")
         self.declare_parameter("box_frame_id", "base_link")
+        self.declare_parameter("small_box_frame_id", "base_link")
         self.declare_parameter("detection_timeout_s", 5.0)
         self.declare_parameter("post_detection_delay_s", 1.0)
 
@@ -224,6 +233,14 @@ class VisionTargetServer(Node):
         with self._lock:
             self.latest_box_points[topic] = copy.deepcopy(message)
 
+    def _small_box_callback(
+        self, message: SmallBoxTarget, *, topic: str
+    ) -> None:
+        with self._lock:
+            self.latest_small_box_targets[topic] = copy.deepcopy(
+                message
+            )
+
     def _parse_json_message(
         self, contents: str, description: str
     ) -> Optional[Dict[str, Any]]:
@@ -269,10 +286,12 @@ class VisionTargetServer(Node):
             VISION_SOURCE_YOLO,
             VISION_SOURCE_ARUCO,
             VISION_SOURCE_BOX_GRAB_POINTS,
+            VISION_SOURCE_SMALL_BOX_TARGET,
         ):
             raise ValueError(
                 f"unsupported vision source {value!r}; "
-                "use 'yolo', 'aruco', or 'box_grab_points'"
+                "use 'yolo', 'aruco', 'box_grab_points', or "
+                "'small_box_target'"
             )
         return source
 
@@ -282,6 +301,8 @@ class VisionTargetServer(Node):
             return ARUCO_CONTROL_TOPIC, ARUCO_POSE_TOPIC
         if source == VISION_SOURCE_BOX_GRAB_POINTS:
             return BOX_CONTROL_TOPIC, BOX_POINTS_TOPIC
+        if source == VISION_SOURCE_SMALL_BOX_TARGET:
+            return SMALL_BOX_CONTROL_TOPIC, SMALL_BOX_TARGET_TOPIC
         return VISION_CONTROL_TOPIC, VISION_POINTS_TOPIC
 
     def _reset_latest(
@@ -293,6 +314,8 @@ class VisionTargetServer(Node):
                 self.latest_aruco_poses[echo_topic] = None
             elif source == VISION_SOURCE_BOX_GRAB_POINTS:
                 self.latest_box_points[echo_topic] = None
+            elif source == VISION_SOURCE_SMALL_BOX_TARGET:
+                self.latest_small_box_targets[echo_topic] = None
             elif trigger_value == 3:
                 self.latest_wall_angle = None
             elif trigger_value == 5:
@@ -324,6 +347,14 @@ class VisionTargetServer(Node):
         with self._lock:
             return copy.deepcopy(self.latest_box_points.get(topic))
 
+    def _latest_small_box(
+        self, topic: str = SMALL_BOX_TARGET_TOPIC
+    ) -> Optional[SmallBoxTarget]:
+        with self._lock:
+            return copy.deepcopy(
+                self.latest_small_box_targets.get(topic)
+            )
+
     def _ensure_typed_interfaces(
         self, source: str, pub_topic: str, echo_topic: str
     ):
@@ -350,26 +381,49 @@ class VisionTargetServer(Node):
                 partial(self._latest_aruco, echo_topic),
             )
 
-        if echo_topic not in self.box_point_subscriptions:
-            self.box_point_subscriptions[echo_topic] = (
+        if source == VISION_SOURCE_BOX_GRAB_POINTS:
+            if echo_topic not in self.box_point_subscriptions:
+                self.box_point_subscriptions[echo_topic] = (
+                    self.create_subscription(
+                        BoxGrabPoints,
+                        echo_topic,
+                        partial(
+                            self._box_points_callback,
+                            topic=echo_topic,
+                        ),
+                        10,
+                        callback_group=self._callbacks,
+                    )
+                )
+            if pub_topic not in self.box_control_publishers:
+                self.box_control_publishers[pub_topic] = (
+                    self.create_publisher(Int32, pub_topic, 10)
+                )
+            return (
+                self.box_control_publishers[pub_topic],
+                partial(self._latest_box, echo_topic),
+            )
+
+        if echo_topic not in self.small_box_subscriptions:
+            self.small_box_subscriptions[echo_topic] = (
                 self.create_subscription(
-                    BoxGrabPoints,
+                    SmallBoxTarget,
                     echo_topic,
                     partial(
-                        self._box_points_callback,
+                        self._small_box_callback,
                         topic=echo_topic,
                     ),
                     10,
                     callback_group=self._callbacks,
                 )
             )
-        if pub_topic not in self.box_control_publishers:
-            self.box_control_publishers[pub_topic] = (
+        if pub_topic not in self.small_box_control_publishers:
+            self.small_box_control_publishers[pub_topic] = (
                 self.create_publisher(Int32, pub_topic, 10)
             )
         return (
-            self.box_control_publishers[pub_topic],
-            partial(self._latest_box, echo_topic),
+            self.small_box_control_publishers[pub_topic],
+            partial(self._latest_small_box, echo_topic),
         )
 
     @staticmethod
@@ -438,6 +492,10 @@ class VisionTargetServer(Node):
             validation_error = self._validate_box_request(
                 trigger_value, labels, point_names
             )
+        elif source == VISION_SOURCE_SMALL_BOX_TARGET:
+            validation_error = self._validate_small_box_request(
+                trigger_value, labels, point_names
+            )
         else:
             validation_error = ""
         if validation_error:
@@ -448,16 +506,19 @@ class VisionTargetServer(Node):
         if source in (
             VISION_SOURCE_ARUCO,
             VISION_SOURCE_BOX_GRAB_POINTS,
+            VISION_SOURCE_SMALL_BOX_TARGET,
         ):
             control_publisher, latest = self._ensure_typed_interfaces(
                 source, pub_topic, echo_topic
             )
             if not self._wait_for_subscriber(control_publisher):
-                detector = (
-                    "aruco_tool_launch.py"
-                    if source == VISION_SOURCE_ARUCO
-                    else "big_box_detection_node"
-                )
+                detector = {
+                    VISION_SOURCE_ARUCO: "aruco_tool_launch.py",
+                    VISION_SOURCE_BOX_GRAB_POINTS:
+                        "big_box_detection_node",
+                    VISION_SOURCE_SMALL_BOX_TARGET:
+                        "small_box_detection_node",
+                }[source]
                 response.success = False
                 response.message = (
                     f"{pub_topic} has no subscriber; start {detector} "
@@ -518,6 +579,14 @@ class VisionTargetServer(Node):
                 point_names,
                 motion_mode,
             )
+        if source == VISION_SOURCE_SMALL_BOX_TARGET:
+            return self._cache_small_box_result(
+                response,
+                key,
+                detection,
+                point_names,
+                motion_mode,
+            )
         if labels and not self._detection_matches_labels(
             detection, labels
         ):
@@ -572,6 +641,23 @@ class VisionTargetServer(Node):
             return (
                 "box_grab_points points must contain exactly two "
                 "point names"
+            )
+        return ""
+
+    @staticmethod
+    def _validate_small_box_request(
+        trigger_value: int,
+        labels: Sequence[str],
+        point_names: Sequence[str],
+    ) -> str:
+        if trigger_value != 1:
+            return "small_box_target trigger_value must be 1"
+        if labels:
+            return "small_box_target source does not support labels"
+        if len(point_names) != 1:
+            return (
+                "small_box_target points must contain exactly one "
+                "point name"
             )
         return ""
 
@@ -678,6 +764,64 @@ class VisionTargetServer(Node):
             f"{point_names[1]}=({values[3]:.6f}, "
             f"{values[4]:.6f}, {values[5]:.6f}), "
             f"angle_deg={values[6]:.3f}"
+        )
+        if motion_mode == 0:
+            response.success = True
+            response.message = "cached"
+            return response
+        return self._fill_selected_response(
+            response, key, point_names, motion_mode
+        )
+
+    def _cache_small_box_result(
+        self,
+        response: GetVisionTarget.Response,
+        key: str,
+        message: SmallBoxTarget,
+        point_names: Sequence[str],
+        motion_mode: int,
+    ) -> GetVisionTarget.Response:
+        expected_frame = str(
+            self.get_parameter("small_box_frame_id").value
+        ).strip()
+        actual_frame = message.header.frame_id.strip()
+        if expected_frame and actual_frame != expected_frame:
+            response.success = False
+            response.message = (
+                "small-box target frame mismatch: "
+                f"expected={expected_frame!r}, received={actual_frame!r}"
+            )
+            return response
+
+        values = (
+            message.center.x,
+            message.center.y,
+            message.center.z,
+            message.angle_deg,
+        )
+        if not all(math.isfinite(float(value)) for value in values):
+            response.success = False
+            response.message = (
+                "small-box center and angle_deg must be finite"
+            )
+            return response
+
+        point_name = point_names[0]
+        pose = self._make_pose(*values[:3])
+        with self._lock:
+            self.detection_cache[key] = {
+                "source": VISION_SOURCE_SMALL_BOX_TARGET,
+                "frame_id": actual_frame,
+                "angle_deg": float(message.angle_deg),
+                "point": point_name,
+            }
+            self.point_cache[key] = {point_name: pose}
+        self.get_logger().info(
+            "cached latest small-box target: "
+            f"key={key}, frame={actual_frame}, "
+            f"{point_name}=({values[0]:.6f}, "
+            f"{values[1]:.6f}, {values[2]:.6f}), "
+            f"angle_deg={values[3]:.3f}"
         )
         if motion_mode == 0:
             response.success = True

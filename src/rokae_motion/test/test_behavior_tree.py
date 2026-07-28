@@ -480,6 +480,44 @@ def test_box_vision_action_uses_configured_topics_and_two_points(
     }
 
 
+def test_small_box_vision_action_uses_one_center_point(
+    tmp_path: Path,
+) -> None:
+    small_box_tree = TEMPLATE.replace(
+        "              - id: wait_1\n",
+        """\
+              - id: detect_small_box
+                type: vision
+                source: small_box_target
+                echo_topic: /small_box/target
+                pub_topic: /small_box/enable
+                key: small_box_pose
+                trigger_value: 1
+                points: [center]
+              - id: wait_1
+""",
+    )
+
+    tree = load_behavior_tree(
+        write_tree(tmp_path, small_box_tree)
+    )
+    action = next(
+        item for item in tree.actions
+        if item.action_id == "detect_small_box"
+    )
+
+    assert action.parameters == {
+        "source": "small_box_target",
+        "echo_topic": "/small_box/target",
+        "pub_topic": "/small_box/enable",
+        "key": "small_box_pose",
+        "trigger_value": 1,
+        "labels": [],
+        "point_names": ["center"],
+        "response_timeout_s": 10.0,
+    }
+
+
 def test_exhibition_visual_move_uses_cached_box_points() -> None:
     example = (
         Path(__file__).resolve().parents[1]
@@ -500,14 +538,43 @@ def test_exhibition_visual_move_uses_cached_box_points() -> None:
         "points": ["left_center", "right_center"],
     }
     assert action.parameters["offsets"] == {
-        "left": [0.0, 0.1, 0.03],
-        "right": [0.0, -0.15, 0.03],
+        "left": [0.0, 0.1, 0.01],
+        "right": [0.0, -0.15, 0.01],
     }
     assert action.parameters["orientations"] == {
         "left": [2.606341, -0.752082, 0.461936],
         "right": [-2.581585, -0.830764, -0.407993],
     }
     assert action.parameters["speed_mm_s"] == 30.0
+
+
+def test_exhibition_small_box_actions_share_cached_center() -> None:
+    example = (
+        Path(__file__).resolve().parents[1]
+        / "behavior_trees"
+        / "examples"
+        / "展会动作.yaml"
+    )
+
+    tree = load_behavior_tree(example)
+    detect = next(
+        item for item in tree.actions
+        if item.action_id == "detect_small_box"
+    )
+    move = next(
+        item for item in tree.actions
+        if item.action_id == "move_above_small_box"
+    )
+
+    assert detect.parameters["source"] == "small_box_target"
+    assert detect.parameters["echo_topic"] == "/small_box/target"
+    assert detect.parameters["pub_topic"] == "/small_box/enable"
+    assert detect.parameters["key"] == "1-1-1-2"
+    assert detect.parameters["point_names"] == ["center"]
+    assert move.parameters["source"] == {
+        "key": "1-1-1-2",
+        "points": ["center"],
+    }
 
 
 def test_visual_motion_rejects_waist_rotation(tmp_path: Path) -> None:

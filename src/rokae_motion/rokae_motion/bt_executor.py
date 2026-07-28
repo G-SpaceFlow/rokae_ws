@@ -472,10 +472,15 @@ def _validate_vision_action(
     source = _text(
         action.get("source", "yolo"), f"{path}.source"
     ).lower()
-    if source not in ("yolo", "aruco", "box_grab_points"):
+    if source not in (
+        "yolo",
+        "aruco",
+        "box_grab_points",
+        "small_box_target",
+    ):
         raise BehaviorTreeError(
             f"{path}.source must be 'yolo', 'aruco', or "
-            "'box_grab_points'"
+            "'box_grab_points', or 'small_box_target'"
         )
     raw_points = action.get("points", action.get("point_names"))
     if isinstance(raw_points, str):
@@ -491,7 +496,13 @@ def _validate_vision_action(
         raw_labels = [raw_labels]
     labels = _text_list(raw_labels, f"{path}.labels")
     default_trigger_value = (
-        1 if source in ("aruco", "box_grab_points") else 2
+        1
+        if source in (
+            "aruco",
+            "box_grab_points",
+            "small_box_target",
+        )
+        else 2
     )
     trigger_value = _integer(
         action.get("trigger_value", default_trigger_value),
@@ -499,17 +510,21 @@ def _validate_vision_action(
         0,
         100,
     )
-    if source in ("aruco", "box_grab_points"):
-        default_echo_topic = (
-            "/tool/pose"
-            if source == "aruco"
-            else "/box_grab_points"
-        )
-        default_pub_topic = (
-            "/aruco/enable"
-            if source == "aruco"
-            else "/box/enable"
-        )
+    if source in (
+        "aruco",
+        "box_grab_points",
+        "small_box_target",
+    ):
+        default_echo_topic = {
+            "aruco": "/tool/pose",
+            "box_grab_points": "/box_grab_points",
+            "small_box_target": "/small_box/target",
+        }[source]
+        default_pub_topic = {
+            "aruco": "/aruco/enable",
+            "box_grab_points": "/box/enable",
+            "small_box_target": "/small_box/enable",
+        }[source]
         echo_topic = _text(
             action.get(
                 "echo_topic",
@@ -533,6 +548,10 @@ def _validate_vision_action(
         if source == "box_grab_points" and len(points) != 2:
             raise BehaviorTreeError(
                 f"{path}.points must contain exactly two point names"
+            )
+        if source == "small_box_target" and len(points) != 1:
+            raise BehaviorTreeError(
+                f"{path}.points must contain exactly one point name"
             )
         if labels:
             raise BehaviorTreeError(

@@ -2,7 +2,7 @@
 
 import json
 
-from box_detection_interfaces.msg import BoxGrabPoints
+from box_detection_interfaces.msg import BoxGrabPoints, SmallBoxTarget
 from geometry_msgs.msg import PoseStamped
 import pytest
 import rclpy
@@ -169,6 +169,106 @@ def test_box_left_and_right_points_are_cached() -> None:
         assert node.detection_cache["box_pose"]["angle_deg"] == (
             pytest.approx(-4.98)
         )
+    finally:
+        if node is not None:
+            node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+def test_small_box_center_is_cached() -> None:
+    rclpy.init()
+    node = None
+    try:
+        node = VisionTargetServer()
+        message = SmallBoxTarget()
+        message.header.frame_id = "base_link"
+        message.center.x = 0.467025
+        message.center.y = -0.053667
+        message.center.z = -0.447923
+        message.angle_deg = -7.305777
+        response = GetVisionTarget.Response()
+
+        result = node._cache_small_box_result(
+            response,
+            "small_box_pose",
+            message,
+            ["center"],
+            0,
+        )
+
+        assert result.success
+        assert result.message == "cached"
+        center = node.point_cache["small_box_pose"]["center"]
+        assert center.position.x == pytest.approx(0.467025)
+        assert center.position.y == pytest.approx(-0.053667)
+        assert center.position.z == pytest.approx(-0.447923)
+        assert (
+            node.detection_cache["small_box_pose"]["angle_deg"]
+            == pytest.approx(-7.305777)
+        )
+    finally:
+        if node is not None:
+            node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+
+
+def test_small_box_trigger_publishes_one_then_zero(
+    monkeypatch,
+) -> None:
+    class FakePublisher:
+        def __init__(self) -> None:
+            self.values = []
+
+        def publish(self, message) -> None:
+            self.values.append(message.data)
+
+    rclpy.init()
+    node = None
+    try:
+        node = VisionTargetServer()
+        message = SmallBoxTarget()
+        message.header.frame_id = "base_link"
+        message.center.x = 0.467
+        message.center.y = -0.054
+        message.center.z = -0.448
+        message.angle_deg = -7.3
+        publisher = FakePublisher()
+        monkeypatch.setattr(
+            node,
+            "_ensure_typed_interfaces",
+            lambda _source, _pub_topic, _echo_topic: (
+                publisher,
+                lambda: message,
+            ),
+        )
+        monkeypatch.setattr(
+            node,
+            "_wait_for_subscriber",
+            lambda _publisher: True,
+        )
+        monkeypatch.setattr(
+            node,
+            "_wait_for_latest",
+            lambda latest, _timeout, _delay: latest(),
+        )
+        request = GetVisionTarget.Request()
+        request.source = "small_box_target"
+        request.echo_topic = "/small_box/target"
+        request.pub_topic = "/small_box/enable"
+        request.key = "small_box_pose"
+        request.trigger_value = 1
+        request.point_names = ["center"]
+        request.motion_mode = 0
+
+        result = node._handle_trigger_detect(
+            request, GetVisionTarget.Response()
+        )
+
+        assert result.success
+        assert publisher.values == [1, 0]
+        assert "center" in node.point_cache["small_box_pose"]
     finally:
         if node is not None:
             node.destroy_node()
