@@ -39,6 +39,50 @@ def test_motion_mode_1_uses_independent_visual_targets() -> None:
     assert result.targets == {"left": left, "right": right}
 
 
+def test_motion_mode_1_applies_per_arm_offsets_and_absolute_rpy() -> None:
+    parameters = {
+        "motion_mode": 1,
+        "source": {
+            "key": "box",
+            "points": ["left_center", "right_center"],
+        },
+        "offsets": {
+            "left": [0.0, 0.1, 0.0],
+            "right": [0.0, -0.1, 0.0],
+        },
+        "orientations": {
+            "left": [-0.5, -1.4, -2.7],
+            "right": [-2.8, -1.4, -0.5],
+        },
+    }
+
+    result = resolve_vision_motion(
+        parameters,
+        {},
+        lambda source, mode: (
+            target(0.5, 0.3, -0.6, (0.0, 0.0, 0.0)),
+            target(0.56, -0.07, -0.68, (0.0, 0.0, 0.0)),
+        ),
+    )
+
+    assert result.targets["left"].position == pytest.approx(
+        (0.5, 0.4, -0.6)
+    )
+    assert result.targets["right"].position == pytest.approx(
+        (0.56, -0.17, -0.68)
+    )
+    assert result.targets["left"].orientation_rpy == (
+        -0.5,
+        -1.4,
+        -2.7,
+    )
+    assert result.targets["right"].orientation_rpy == (
+        -2.8,
+        -1.4,
+        -0.5,
+    )
+
+
 def test_motion_mode_2_moves_current_midpoint_to_visual_point() -> None:
     parameters = {
         "motion_mode": 2,

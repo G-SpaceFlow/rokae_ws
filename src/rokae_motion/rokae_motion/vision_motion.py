@@ -40,7 +40,11 @@ def quaternion_to_rpy(
     roll = math.atan2(sinr_cosp, cosr_cosp)
 
     sinp = 2.0 * (w * y - z * x)
-    pitch = math.copysign(math.pi / 2.0, sinp) if abs(sinp) >= 1.0 else math.asin(sinp)
+    pitch = (
+        math.copysign(math.pi / 2.0, sinp)
+        if abs(sinp) >= 1.0
+        else math.asin(sinp)
+    )
 
     siny_cosp = 2.0 * (w * z + x * y)
     cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
@@ -146,8 +150,29 @@ def resolve_vision_motion(
     mode = int(parameters["motion_mode"])
     if mode == 1:
         left, right = fetch_target(parameters["source"], 1)
+        fetched = {"left": left, "right": right}
         return ResolvedVisionMotion(
-            targets={"left": left, "right": right}
+            targets={
+                side: CartesianTarget(
+                    position=_add(
+                        fetched[side].position,
+                        parameters.get("offsets", {}).get(
+                            side, (0.0, 0.0, 0.0)
+                        ),
+                    ),
+                    orientation_rpy=tuple(
+                        (
+                            override
+                            if override is not None
+                            else fetched[side].orientation_rpy[index]
+                        )
+                        for index, override in enumerate(
+                            _orientation_for(parameters, side)
+                        )
+                    ),
+                )
+                for side in ARM_NAMES
+            }
         )
 
     if mode == 2:

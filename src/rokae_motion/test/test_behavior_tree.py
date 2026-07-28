@@ -60,6 +60,69 @@ def test_action_id_selection(tmp_path: Path) -> None:
     assert [action.action_id for action in selected] == ["wait_1"]
 
 
+def test_location_navigation_is_normalized(tmp_path: Path) -> None:
+    navigation = TEMPLATE.replace(
+        "      - id: station_1\n",
+        """\
+      - id: station_1
+        command: lm2
+""",
+    )
+
+    tree = load_behavior_tree(write_tree(tmp_path, navigation))
+    action = select_actions(
+        tree, TreeSelection(action_id="nav_pose")
+    )[0]
+
+    assert action.location_navigation
+    assert action.parameters == {
+        "command": "LM2",
+        "station": "LM2",
+        "arrival_state": "ARRIVE_A",
+        "connection_timeout_s": 5.0,
+        "response_timeout_s": 180.0,
+    }
+
+
+def test_location_navigation_precedes_selected_behavior_action(
+    tmp_path: Path,
+) -> None:
+    navigation = TEMPLATE.replace(
+        "      - id: station_1\n",
+        """\
+      - id: station_1
+        command: LM1
+""",
+    )
+
+    tree = load_behavior_tree(write_tree(tmp_path, navigation))
+    selected = select_actions(
+        tree, TreeSelection(action_id="wait_1")
+    )
+
+    assert [action.action_id for action in selected] == [
+        "nav_pose",
+        "wait_1",
+    ]
+
+
+def test_location_navigation_rejects_unknown_command(
+    tmp_path: Path,
+) -> None:
+    navigation = TEMPLATE.replace(
+        "      - id: station_1\n",
+        """\
+      - id: station_1
+        command: somewhere
+""",
+    )
+
+    with pytest.raises(
+        BehaviorTreeError, match="unsupported navigation command"
+    ):
+        load_behavior_tree(write_tree(tmp_path, navigation))
+
+
 def test_duplicate_action_ids_preserve_yaml_order(tmp_path: Path) -> None:
     duplicate_actions = TEMPLATE.replace(
         """\
@@ -270,7 +333,8 @@ def test_hand_rejects_invalid_protocol_values(
     tmp_path: Path, hand_yaml: str, message: str
 ) -> None:
     hand_tree = TEMPLATE.replace(
-        "              - id: wait_1\n", hand_yaml + "              - id: wait_1\n"
+        "              - id: wait_1\n",
+        hand_yaml + "              - id: wait_1\n",
     )
 
     with pytest.raises(BehaviorTreeError, match=message):
@@ -293,6 +357,157 @@ def test_complete_example_validates_all_visual_motion_modes() -> None:
     }
 
     assert modes == {1, 2, 3, 4, 5, 6}
+
+
+def test_aruco_vision_action_uses_one_tool_pose(
+    tmp_path: Path,
+) -> None:
+    aruco_tree = TEMPLATE.replace(
+        "              - id: wait_1\n",
+        """\
+              - id: detect_tool
+                type: vision
+                source: aruco
+                key: tool_pose
+                trigger_value: 1
+                points: [tool]
+              - id: wait_1
+""",
+    )
+
+    tree = load_behavior_tree(write_tree(tmp_path, aruco_tree))
+    action = next(
+        item for item in tree.actions
+        if item.action_id == "detect_tool"
+    )
+
+    assert action.parameters == {
+        "source": "aruco",
+        "echo_topic": "/tool/pose",
+        "pub_topic": "/aruco/enable",
+        "key": "tool_pose",
+        "trigger_value": 1,
+        "labels": [],
+        "point_names": ["tool"],
+        "response_timeout_s": 10.0,
+    }
+
+
+def test_aruco_vision_rejects_xyz_as_point_names(
+    tmp_path: Path,
+) -> None:
+    aruco_tree = TEMPLATE.replace(
+        "              - id: wait_1\n",
+        """\
+              - id: detect_tool
+                type: vision
+                source: aruco
+                key: tool_pose
+                trigger_value: 1
+                points: [x, y, z]
+              - id: wait_1
+""",
+    )
+
+    with pytest.raises(
+        BehaviorTreeError,
+        match="points must contain exactly one point name",
+    ):
+        load_behavior_tree(write_tree(tmp_path, aruco_tree))
+
+
+def test_aruco_vision_accepts_topics_from_tree(
+    tmp_path: Path,
+) -> None:
+    aruco_tree = TEMPLATE.replace(
+        "              - id: wait_1\n",
+        """\
+              - id: detect_tool
+                type: vision
+                source: aruco
+                echo_topic: /custom/tool_pose
+                pub_topic: /custom/aruco_enable
+                key: tool_pose
+                trigger_value: 1
+                points: [tool]
+              - id: wait_1
+""",
+    )
+
+    tree = load_behavior_tree(write_tree(tmp_path, aruco_tree))
+    action = next(
+        item for item in tree.actions
+        if item.action_id == "detect_tool"
+    )
+
+    assert action.parameters["echo_topic"] == "/custom/tool_pose"
+    assert action.parameters["pub_topic"] == "/custom/aruco_enable"
+
+
+def test_box_vision_action_uses_configured_topics_and_two_points(
+    tmp_path: Path,
+) -> None:
+    box_tree = TEMPLATE.replace(
+        "              - id: wait_1\n",
+        """\
+              - id: detect_box
+                type: vision
+                source: box_grab_points
+                echo_topic: /box_grab_points
+                pub_topic: /box/enable
+                key: box_pose
+                trigger_value: 1
+                points: [left_center, right_center]
+              - id: wait_1
+""",
+    )
+
+    tree = load_behavior_tree(write_tree(tmp_path, box_tree))
+    action = next(
+        item for item in tree.actions
+        if item.action_id == "detect_box"
+    )
+
+    assert action.parameters == {
+        "source": "box_grab_points",
+        "echo_topic": "/box_grab_points",
+        "pub_topic": "/box/enable",
+        "key": "box_pose",
+        "trigger_value": 1,
+        "labels": [],
+        "point_names": ["left_center", "right_center"],
+        "response_timeout_s": 10.0,
+    }
+
+
+def test_exhibition_visual_move_uses_cached_box_points() -> None:
+    example = (
+        Path(__file__).resolve().parents[1]
+        / "behavior_trees"
+        / "examples"
+        / "展会动作.yaml"
+    )
+
+    tree = load_behavior_tree(example)
+    action = next(
+        item for item in tree.actions
+        if item.action_id == "move_to_box_grab_points"
+    )
+
+    assert action.action_type == "move_l_vision"
+    assert action.parameters["source"] == {
+        "key": "1-1-1-1",
+        "points": ["left_center", "right_center"],
+    }
+    assert action.parameters["offsets"] == {
+        "left": [0.0, 0.1, 0.03],
+        "right": [0.0, -0.15, 0.03],
+    }
+    assert action.parameters["orientations"] == {
+        "left": [2.606341, -0.752082, 0.461936],
+        "right": [-2.581585, -0.830764, -0.407993],
+    }
+    assert action.parameters["speed_mm_s"] == 30.0
 
 
 def test_visual_motion_rejects_waist_rotation(tmp_path: Path) -> None:

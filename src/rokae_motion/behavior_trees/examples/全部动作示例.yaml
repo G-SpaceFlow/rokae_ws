@@ -8,8 +8,9 @@ tasks:
   - id: task_example_001
     name: all_action_types
     locations:
-      - id: location_example_001
-        name: robot_cell
+      - id: example_navigate_to_a
+        name: navigate_chassis_to_a
+        command: LM2
         behaviors:
           - id: behavior_arm_001
             name: arm_action_examples
@@ -69,7 +70,6 @@ tasks:
                 key: vision_mode_1
                 trigger_value: 2
                 labels: [tray]
-                motion_mode: 1
                 points: [left, right]
                 offset_id: default
 
@@ -90,7 +90,6 @@ tasks:
                 key: vision_mode_2
                 trigger_value: 1
                 labels: [tray]
-                motion_mode: 2
                 points: [center]
 
               - id: example_move_l_vision_mode_2
@@ -112,7 +111,6 @@ tasks:
                 key: vision_mode_3
                 trigger_value: 3
                 labels: []
-                motion_mode: 3
                 points: [base]
 
               - id: example_move_l_vision_mode_3
@@ -139,7 +137,6 @@ tasks:
                 key: vision_mode_4
                 trigger_value: 2
                 labels: [tray]
-                motion_mode: 4
                 points: [target]
 
               - id: example_move_l_vision_mode_4
@@ -172,7 +169,6 @@ tasks:
                 key: vision_mode_5
                 trigger_value: 2
                 labels: [tray]
-                motion_mode: 5
                 points: [left_current]
 
               - id: example_move_l_vision_mode_5
@@ -209,7 +205,6 @@ tasks:
                 key: vision_mode_6
                 trigger_value: 5
                 labels: [tray]
-                motion_mode: 6
                 points: [y_offset]
 
               - id: example_move_l_vision_mode_6

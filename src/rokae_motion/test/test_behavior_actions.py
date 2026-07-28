@@ -27,6 +27,9 @@ class FakeExecutor:
     def control_hand(self, parameters) -> None:
         self.calls.append(("hand", parameters))
 
+    def navigate(self, parameters) -> None:
+        self.calls.append(("navigate", parameters))
+
     def wait(self, duration_s) -> None:
         self.calls.append(("wait", duration_s))
 
@@ -103,6 +106,22 @@ def test_hand_behavior() -> None:
     execute_behavior(executor, action)
 
     assert executor.calls == [("hand", action.parameters)]
+
+
+def test_navigate_behavior() -> None:
+    executor = FakeExecutor()
+    action = SimpleNamespace(
+        action_type="navigate",
+        parameters={
+            "command": "LM2",
+            "station": "LM2",
+            "arrival_state": "ARRIVE_A",
+        },
+    )
+
+    execute_behavior(executor, action)
+
+    assert executor.calls == [("navigate", action.parameters)]
 
 
 def test_vision_behaviors() -> None:

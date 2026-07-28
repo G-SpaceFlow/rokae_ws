@@ -1,6 +1,7 @@
 """Load, validate, select and execute a Rokae behavior-tree YAML file."""
 
 from dataclasses import dataclass
+from functools import lru_cache
 import math
 from pathlib import Path
 import sys
@@ -8,9 +9,11 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import rclpy
 import yaml
+from ament_index_python.packages import get_package_share_directory
 
 from .bt_actions import BEHAVIORS, execute_behavior
 from .bt_runner_config import RunnerConfig
+from .chassis_navigation import navigation_command_details
 from .executor_services import RokaeActionExecutor
 from .moveabsj_action_client import ProgramError, validate_joint_target
 from .vision_motion import quaternion_to_rpy
@@ -50,6 +53,7 @@ class ActionSpec:
     enabled: bool
     optional: bool
     parameters: Dict[str, Any]
+    location_navigation: bool = False
 
     @property
     def path(self) -> str:
@@ -113,6 +117,72 @@ def _number(
             f"{path} must be finite and in [{minimum}, {maximum}]"
         )
     return number
+
+
+@lru_cache(maxsize=1)
+def _navigation_defaults() -> Dict[str, Any]:
+    source_path = (
+        Path(__file__).resolve().parent.parent
+        / "config"
+        / "navigation.yaml"
+    )
+    config_path = (
+        source_path
+        if source_path.is_file()
+        else (
+            Path(get_package_share_directory("rokae_motion"))
+            / "config"
+            / "navigation.yaml"
+        )
+    )
+    try:
+        document = yaml.safe_load(
+            config_path.read_text(encoding="utf-8")
+        )
+    except OSError as exc:
+        raise BehaviorTreeError(
+            f"cannot read navigation defaults {config_path}: {exc}"
+        ) from exc
+    except yaml.YAMLError as exc:
+        raise BehaviorTreeError(
+            f"invalid navigation defaults {config_path}: {exc}"
+        ) from exc
+
+    root = _mapping(document, "navigation config")
+    navigation = _mapping(
+        root.get("location_navigation"),
+        "navigation config.location_navigation",
+    )
+    action_type = _text(
+        navigation.get("type"),
+        "navigation config.location_navigation.type",
+    )
+    if action_type != "navigate":
+        raise BehaviorTreeError(
+            "navigation config.location_navigation.type must be "
+            "'navigate'"
+        )
+    return {
+        "type": action_type,
+        "connection_timeout_s": _number(
+            navigation.get("connection_timeout_s"),
+            (
+                "navigation config.location_navigation."
+                "connection_timeout_s"
+            ),
+            0.1,
+            60.0,
+        ),
+        "response_timeout_s": _number(
+            navigation.get("response_timeout_s"),
+            (
+                "navigation config.location_navigation."
+                "response_timeout_s"
+            ),
+            1.0,
+            3600.0,
+        ),
+    }
 
 
 def _unique_ids(items: Iterable[Any], path: str) -> None:
@@ -399,41 +469,84 @@ def _validate_vision_source(
 def _validate_vision_action(
     action: Dict[str, Any], path: str
 ) -> Dict[str, Any]:
-    mode = _integer(
-        action.get("motion_mode", 1),
-        f"{path}.motion_mode",
-        1,
-        6,
-    )
+    source = _text(
+        action.get("source", "yolo"), f"{path}.source"
+    ).lower()
+    if source not in ("yolo", "aruco", "box_grab_points"):
+        raise BehaviorTreeError(
+            f"{path}.source must be 'yolo', 'aruco', or "
+            "'box_grab_points'"
+        )
     raw_points = action.get("points", action.get("point_names"))
     if isinstance(raw_points, str):
         raw_points = [raw_points]
     points = _text_list(raw_points, f"{path}.points")
-    if mode == 1 and len(points) < 2:
+    if not points:
         raise BehaviorTreeError(
-            f"{path}.points needs at least two point names for "
-            "motion_mode 1"
-        )
-    if mode != 1 and len(points) != 1:
-        raise BehaviorTreeError(
-            f"{path}.points must contain exactly one point name for "
-            f"motion_mode {mode}"
+            f"{path}.points must contain at least one point name"
         )
 
     raw_labels = action.get("labels", action.get("label_filter", []))
     if isinstance(raw_labels, str):
         raw_labels = [raw_labels]
     labels = _text_list(raw_labels, f"{path}.labels")
+    default_trigger_value = (
+        1 if source in ("aruco", "box_grab_points") else 2
+    )
+    trigger_value = _integer(
+        action.get("trigger_value", default_trigger_value),
+        f"{path}.trigger_value",
+        0,
+        100,
+    )
+    if source in ("aruco", "box_grab_points"):
+        default_echo_topic = (
+            "/tool/pose"
+            if source == "aruco"
+            else "/box_grab_points"
+        )
+        default_pub_topic = (
+            "/aruco/enable"
+            if source == "aruco"
+            else "/box/enable"
+        )
+        echo_topic = _text(
+            action.get(
+                "echo_topic",
+                action.get("topic", default_echo_topic),
+            ),
+            f"{path}.echo_topic",
+        )
+        pub_topic = _text(
+            action.get("pub_topic", default_pub_topic),
+            f"{path}.pub_topic",
+        )
+        if trigger_value != 1:
+            raise BehaviorTreeError(
+                f"{path}.trigger_value must be 1 for source "
+                f"{source!r}"
+            )
+        if source == "aruco" and len(points) != 1:
+            raise BehaviorTreeError(
+                f"{path}.points must contain exactly one point name"
+            )
+        if source == "box_grab_points" and len(points) != 2:
+            raise BehaviorTreeError(
+                f"{path}.points must contain exactly two point names"
+            )
+        if labels:
+            raise BehaviorTreeError(
+                f"{path}.labels is unsupported for source "
+                f"{source!r}"
+            )
+    else:
+        echo_topic = ""
+        pub_topic = ""
     parameters = {
+        "source": source,
         "key": _text(action.get("key"), f"{path}.key"),
-        "trigger_value": _integer(
-            action.get("trigger_value", 2),
-            f"{path}.trigger_value",
-            0,
-            100,
-        ),
+        "trigger_value": trigger_value,
         "labels": labels,
-        "motion_mode": mode,
         "point_names": points,
         "response_timeout_s": _number(
             action.get("response_timeout_s", 10.0),
@@ -442,6 +555,9 @@ def _validate_vision_action(
             120.0,
         ),
     }
+    if echo_topic:
+        parameters["echo_topic"] = echo_topic
+        parameters["pub_topic"] = pub_topic
     if "offset_id" in action:
         parameters["offset_id"] = _text(
             action["offset_id"], f"{path}.offset_id"
@@ -688,7 +804,17 @@ def _validate_move_l_vision(
             "points": points[:2] if mode == 1 else points,
         }
 
-    if mode == 2:
+    if mode == 1:
+        offsets, orientations = _relative_side_values(
+            raw_offset,
+            f"{path}.relative_offset",
+        )
+        parameters["offsets"] = {
+            side: offsets.get(side, [0.0, 0.0, 0.0])
+            for side in ARM_NAMES
+        }
+        parameters["orientations"] = orientations
+    elif mode == 2:
         midpoint_value = raw_offset
         midpoint_path = f"{path}.relative_offset"
         for key in ("midpoint", "center", "left", "left_arm"):
@@ -967,6 +1093,81 @@ def _validate_wait(action: Dict[str, Any], path: str) -> Dict[str, Any]:
     }
 
 
+def _validate_navigate(
+    action: Dict[str, Any], path: str
+) -> Dict[str, Any]:
+    defaults = _navigation_defaults()
+    command = _text(action.get("command"), f"{path}.command")
+    try:
+        command, station, arrival_state = navigation_command_details(
+            command
+        )
+    except ValueError as exc:
+        raise BehaviorTreeError(f"{path}.command: {exc}") from exc
+    return {
+        "command": command,
+        "station": station,
+        "arrival_state": arrival_state,
+        "connection_timeout_s": _number(
+            action.get(
+                "connection_timeout_s",
+                defaults["connection_timeout_s"],
+            ),
+            f"{path}.connection_timeout_s",
+            0.1,
+            60.0,
+        ),
+        "response_timeout_s": _number(
+            action.get(
+                "response_timeout_s",
+                defaults["response_timeout_s"],
+            ),
+            f"{path}.response_timeout_s",
+            1.0,
+            3600.0,
+        ),
+    }
+
+
+def _validate_location_navigation(
+    value: Any,
+    path: str,
+    task: Dict[str, str],
+    location: Dict[str, str],
+) -> ActionSpec:
+    navigation = _mapping(value, path)
+    defaults = _navigation_defaults()
+    action_type = _text(
+        navigation.get("type", defaults["type"]), f"{path}.type"
+    )
+    if action_type != "navigate":
+        raise BehaviorTreeError(f"{path}.type must be 'navigate'")
+    enabled = _boolean(
+        navigation.get("enabled", True), f"{path}.enabled"
+    )
+    optional = _boolean(
+        navigation.get("optional", False), f"{path}.optional"
+    )
+    parameters = (
+        _validate_navigate(navigation, path) if enabled else {}
+    )
+    return ActionSpec(
+        task_id=task["id"],
+        task_name=task["name"],
+        location_id=location["id"],
+        location_name=location["name"],
+        behavior_id="__location__",
+        behavior_name="location_navigation",
+        action_id="nav_pose",
+        action_name=location["name"],
+        action_type=action_type,
+        enabled=enabled,
+        optional=optional,
+        parameters=parameters,
+        location_navigation=True,
+    )
+
+
 def _validate_action(
     raw_action: Any,
     path: str,
@@ -995,6 +1196,7 @@ def _validate_action(
             "move_l": _validate_move_l,
             "move_l_relative": _validate_move_l_relative,
             "move_l_vision": _validate_move_l_vision,
+            "navigate": _validate_navigate,
             "vision": _validate_vision_action,
             "wait": _validate_wait,
         }
@@ -1065,6 +1267,29 @@ def load_behavior_tree(path: Path) -> BehaviorTree:
                     f"{location_path}.name",
                 ),
             }
+            location_type = location_mapping.get("type")
+            raw_navigation = location_mapping.get("nav_pose")
+            navigation_path = f"{location_path}.nav_pose"
+            if (
+                location_type is not None
+                or "command" in location_mapping
+            ):
+                if raw_navigation is not None:
+                    raise BehaviorTreeError(
+                        f"{location_path} must use either direct navigation "
+                        "fields or nav_pose, not both"
+                    )
+                raw_navigation = location_mapping
+                navigation_path = location_path
+            if raw_navigation is not None:
+                actions.append(
+                    _validate_location_navigation(
+                        raw_navigation,
+                        navigation_path,
+                        task,
+                        location,
+                    )
+                )
             raw_behaviors = _items(
                 location_mapping.get("behaviors"),
                 f"{location_path}.behaviors",
@@ -1116,11 +1341,12 @@ def load_behavior_tree(path: Path) -> BehaviorTree:
 def select_actions(
     tree: BehaviorTree, selection: TreeSelection
 ) -> List[ActionSpec]:
-    """Return all matches in YAML order, including duplicate action IDs."""
-    actions = [
+    """Select actions and prepend each selected location's navigation."""
+    normal_actions = [
         action
         for action in tree.actions
-        if (
+        if not action.location_navigation
+        and (
             selection.task_id is None
             or action.task_id == selection.task_id
         )
@@ -1137,6 +1363,41 @@ def select_actions(
             or action.action_id == selection.action_id
         )
     ]
+    selected_locations = {
+        (action.task_id, action.location_id)
+        for action in normal_actions
+    }
+
+    actions: List[ActionSpec] = []
+    for action in tree.actions:
+        if not action.location_navigation:
+            if action in normal_actions:
+                actions.append(action)
+            continue
+        if (
+            selection.task_id is not None
+            and action.task_id != selection.task_id
+        ):
+            continue
+        if (
+            selection.location_id is not None
+            and action.location_id != selection.location_id
+        ):
+            continue
+        location_selected = (
+            selection.behavior_id is None
+            and selection.action_id is None
+        ) or (
+            (action.task_id, action.location_id)
+            in selected_locations
+        )
+        navigation_selected = (
+            selection.behavior_id is None
+            and selection.action_id == action.action_id
+        )
+        if location_selected or navigation_selected:
+            actions.append(action)
+
     if not actions:
         filters = [
             f"{name}={value!r}"
@@ -1210,8 +1471,24 @@ class BehaviorTreeExecutor:
         enabled_actions = [
             action for action in planned_actions if action.enabled
         ]
+        if self.config.skip_navigation:
+            skipped_navigation = [
+                action
+                for action in enabled_actions
+                if action.action_type == "navigate"
+            ]
+            if skipped_navigation:
+                print(
+                    "Navigation skipped by --skip-nav: "
+                    f"{len(skipped_navigation)} action(s)."
+                )
+                enabled_actions = [
+                    action
+                    for action in enabled_actions
+                    if action.action_type != "navigate"
+                ]
         if not enabled_actions:
-            print("No enabled action selected; nothing to execute.")
+            print("No executable action remains; nothing to execute.")
             return 0
         if not self._confirm_execution(len(enabled_actions)):
             print("Cancelled; no robot command was sent.")

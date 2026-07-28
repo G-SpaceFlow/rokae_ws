@@ -46,6 +46,19 @@ WORKFLOW = [
             },
         ],
     },
+
+    {
+        "name": "展会调试流程",
+        "repeat": 0,
+        "steps": [
+            {
+                "task_id": "task_002",
+                # "location_id": "location_001",
+                # "behavior_id": "behavior_001",
+                # "action_id": "action_004",
+            },
+        ],
+    },
 ]
 
 
@@ -69,9 +82,16 @@ def build_action_plan(
         name = str(group.get("name", "workflow"))
         repeat = int(group.get("repeat", 1))
         steps = group.get("steps", [])
-        if repeat < 1 or not steps:
+        if repeat < 0:
             raise BehaviorTreeError(
-                f"workflow group {name!r} needs repeat >= 1 and steps"
+                f"workflow group {name!r} needs repeat >= 0"
+            )
+        if repeat == 0:
+            print(f"Workflow group: {name}, repeat=0 (skipped)")
+            continue
+        if not steps:
+            raise BehaviorTreeError(
+                f"workflow group {name!r} needs steps when repeat > 0"
             )
 
         print(
@@ -110,6 +130,9 @@ def main(arguments: Optional[Sequence[str]] = None) -> int:
     try:
         tree = executor.load_tree(BEHAVIOR_TREE_PATH)
         actions = build_action_plan(tree)
+        if not actions:
+            print("Workflow has no actions; all groups were skipped.")
+            return 0
         return executor.execute_actions(tree, actions)
     except (BehaviorTreeError, TypeError, ValueError) as exc:
         print(f"Workflow error: {exc}", file=sys.stderr)

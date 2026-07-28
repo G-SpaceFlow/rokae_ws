@@ -1,0 +1,32 @@
+# 相机配置文件
+# 序列号为相机出厂设置，固定值
+cameras:
+  camera_0: # 头部相机
+    serial: "342522071564"
+    width: 640
+    height: 480
+    fps: 30
+    color_format: "bgr8"
+    depth_format: "z16"
+    enable: true        # 是否启用
+    align_to_color: true # 是否对齐
+
+  camera_1:
+    serial: "352122274013"
+    width: 640
+    height: 480
+    fps: 30
+    color_format: "bgr8"
+    depth_format: "z16"
+    enable: false
+    align_to_color: true
+
+  camera_2:
+    serial: "136622073025"
+    width: 640
+    height: 480
+    fps: 30
+    color_format: "bgr8"
+    depth_format: "z16"
+    enable: false
+    align_to_color: true

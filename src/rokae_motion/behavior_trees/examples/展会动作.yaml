@@ -18,39 +18,59 @@ tasks:
               # before the dual-arm target. From the recorded startup pose,
               # both stages keep every joint change below the configured
               # max_goal_delta_rad of 1.0.
-              - id: right_preposition
-                name: right_preposition_for_joint_target
-                type: move_absj
-                enabled: true
-                targets:
-                  right: [-1.649665, 1.294103, 1.275071, 1.408305, -0.647243, 0.252457, -0.103705]
 
               - id: action_001
                 name: move_to_dual_arm_joint_target
                 type: move_absj
                 enabled: true
                 targets:
-                  left: [1.167045, 1.300690, -1.524894, 0.588013, -0.254441, 0.509970, -0.364911]
-                  right: [-1.652252, 1.369718, 1.524893, 0.984033, 0.261897, 0.196173, -0.145317]
+                  left: [1.087477, 1.302845, -1.566667, 0.609269, -0.353221, -0.250497, -0.255990]
+                  right: [-1.234836, 1.254863, 1.329129, 0.628046, 0.481215, -0.425924, 0.046539]
 
-              - id: action_002
-                name: settle
-                type: wait
-                duration_s: 1.0
 
-              - id: action_003
-                name: right_linear_move
-                type: move_l
+              - id: detect_box_points
+                name: cache_box_grab_points
+                label: 视觉识别：缓存箱体左右抓取点
+                echo_topic: /box_grab_points
+                pub_topic: /box/enable
+                type: vision
+                source: box_grab_points
+                key: "1-1-1-1"
+                trigger_value: 1
+                points: ["left_center", "right_center"]
+                optional: false
+
+
+              - id: move_to_box_grab_points
+                name: dual_arm_moveL_to_box_grab_points
+                label: 左右臂移动到箱体两侧抓取点
+                type: move_l_vision
                 enabled: true
                 optional: false
-                targets:
-                  right:
-                    # [x, y, z, rx, ry, rz]: m and XYZ Euler rad
-                    pose: [0.541732, -0.196407, -0.254360, 1.628927, -0.107558, 1.947589]
-                    elbow: 1.292778
-                speed_mm_s: 50.0
+                # 使用 /box_grab_points 缓存的两个点，不重新触发识别。
+                base_key: "1-1-1-1"
+                motion_mode: 1
+                points: ["left_center", "right_center"]
+                relative_offset:
+                  # dx/dy/dz 为相对视觉点的位置偏移；
+                  # rx/ry/rz 为左右臂各自的绝对目标姿态（弧度）。
+                  left: {dx: 0.0, dy: 0.1, dz: 0.03, rx: 2.606341, ry: -0.752082, rz: 0.461936}
+                  right: {dx: 0.0, dy: -0.15, dz: 0.03, rx: -2.581585, ry: -0.830764, rz: -0.407993}
+
+                speed_mm_s: 30.0
                 zone_mm: 0.0
                 response_timeout_s: 70.0
+
+
+              - id: hand_1
+                name: set_dual_hand_motor_positions
+                type: hand
+                command: motors
+                targets:
+                  # M1-M6: thumb bend, thumb side swing, index, middle,
+                  # ring and little-finger bend.
+                  left: [150, 254, 254, 254, 254, 254]
+                  right: [150, 254, 254, 254, 254, 254]
 
 
               - id: action_004
@@ -60,8 +80,10 @@ tasks:
                 optional: false
                 relative_offset:
                   rotate_with_waist: false
+                  left:
+                    dy: -0.07
                   right:
-                    dz: -0.06
+                    dy: 0.05
                 speed_mm_s: 30.0
                 zone_mm: 0.0
                 response_timeout_s: 70.0
@@ -82,7 +104,111 @@ tasks:
               #   response_timeout_s: 70.0
 
 
-              - id: hand_custom
+              - id: action_002
+                name: settle
+                type: wait
+                duration_s: 1.0
+
+
+              - id: action_004
+                name: dual_arm_relative_lift
+                type: move_l_relative
+                enabled: true
+                optional: false
+                relative_offset:
+                  rotate_with_waist: false
+                  left:
+                    dz: 0.05
+                  right:
+                    dz: 0.05
+                speed_mm_s: 30.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0
+
+
+              - id: action_004
+                name: dual_arm_relative_lift
+                type: move_l_relative
+                enabled: true
+                optional: false
+                relative_offset:
+                  rotate_with_waist: false
+                  left:
+                    dy: 0.07
+                  right:
+                    dy: 0.05
+                speed_mm_s: 30.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0
+
+
+      - id: location_002
+        name: robot_cell
+        behaviors:
+          - id: behavior_001
+            name: basic_motion_sequence
+            actions:
+              - id: detect_tool_pose
+                name: cache_aruco_tool_pose
+                label: 视觉识别：缓存二维码工具位姿
+                echo_topic: /tool/pose
+                pub_topic: /aruco/enable
+                type: vision
+                source: aruco
+                key: "1-1-1-2"
+                trigger_value: 1
+                points: ["tool"]
+                optional: false
+
+
+              - id: right_preposition
+                name: right_preposition_for_joint_target
+                type: move_absj
+                enabled: true
+                targets:
+                  right: [-1.649665, 1.294103, 1.275071, 1.408305, -0.647243, 0.252457, -0.103705]
+
+
+              - id: move_above_tool
+                name: right_arm_moveL_above_tool
+                label: 右臂移动到二维码工具点上方
+                type: move_l_vision
+                enabled: true
+                optional: false
+                # 使用 /tool/pose 缓存的 tool 点，不重新触发识别。
+                base_key: "1-1-1-2"
+                motion_mode: 3
+                points: ["tool"]
+                relative_offset:
+                  # 目标位置 = tool 位姿位置 + 以下偏移；
+                  # rx/ry/rz 是右臂的绝对目标姿态（弧度）。
+                  right: {dx: -0.10, dy: -0.01, dz: 0.20, rx: 1.899444, ry: -0.133504, rz: 1.682983}
+                speed_mm_s: 30.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0
+
+
+              - id: action_004
+                name: dual_arm_relative_lift
+                type: move_l_relative
+                enabled: true
+                optional: false
+                relative_offset:
+                  rotate_with_waist: false
+                  right:
+                    dz: -0.1
+                speed_mm_s: 30.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0
+
+
+              - id: action_002
+                name: settle
+                type: wait
+                duration_s: 1.0
+
+
+              - id: hand_2
                 name: set_dual_hand_motor_positions
                 type: hand
                 command: motors
@@ -90,4 +216,78 @@ tasks:
                   # M1-M6: thumb bend, thumb side swing, index, middle,
                   # ring and little-finger bend.
                   # left: [160, 160, 160, 160, 160, 160]
-                  right: [100, 100, 160, 160, 160, 160]
+                  right: [190, 1, 170, 170, 180, 180]
+
+
+              - id: action_002
+                name: settle
+                type: wait
+                duration_s: 1.0
+
+
+              - id: action_004
+                name: dual_arm_relative_lift
+                type: move_l_relative
+                enabled: true
+                optional: false
+                relative_offset:
+                  rotate_with_waist: false
+                  right:
+                    dz: 0.12
+                speed_mm_s: 30.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0
+
+
+              - id: hand_1
+                name: set_dual_hand_motor_positions
+                type: hand
+                command: motors
+                targets:
+                  # M1-M6: thumb bend, thumb side swing, index, middle,
+                  # ring and little-finger bend.
+                  # left: [160, 160, 160, 160, 160, 160]
+                  right: [254, 1, 254, 254, 254, 254]
+
+
+
+
+
+
+  - id: task_002
+    name: test2
+    locations:
+      - id: example_navigate_to_a
+        name: navigate_chassis_to_a
+        command: LM2
+
+        behaviors:
+          - id: behavior_001
+            name: basic_motion_sequence
+            actions:
+              - id: hand_1
+                name: set_dual_hand_motor_positions
+                type: hand
+                command: motors
+                targets:
+                  # M1-M6: thumb bend, thumb side swing, index, middle,
+                  # ring and little-finger bend.
+                  # left: [160, 160, 160, 160, 160, 160]
+                  right: [254, 1, 254, 254, 254, 254]
+
+
+              - id: action_002
+                name: settle
+                type: wait
+                duration_s: 1.0
+
+
+              - id: hand_2
+                name: set_dual_hand_motor_positions
+                type: hand
+                command: motors
+                targets:
+                  # M1-M6: thumb bend, thumb side swing, index, middle,
+                  # ring and little-finger bend.
+                  # left: [160, 160, 160, 160, 160, 160]
+                  right: [200, 1, 200, 200, 200, 200]

@@ -10,6 +10,7 @@ class RunnerConfig:
     execute: bool = False
     initialize_before_execute: bool = False
     continue_on_action_fail: bool = False
+    skip_navigation: bool = False
     require_confirmation: bool = False
     confirmation_phrase: str = "EXECUTE"
 
@@ -38,6 +39,11 @@ def add_common_runner_args(
             "always continue"
         ),
     )
+    parser.add_argument(
+        "--skip-nav",
+        action="store_true",
+        help="skip enabled navigate actions without sending chassis commands",
+    )
 
 
 def build_config_from_args(
@@ -53,5 +59,8 @@ def build_config_from_args(
         initialize_before_execute=initialize_before_execute,
         continue_on_action_fail=bool(
             getattr(arguments, "continue_on_action_fail", False)
+        ),
+        skip_navigation=bool(
+            getattr(arguments, "skip_nav", False)
         ),
     )

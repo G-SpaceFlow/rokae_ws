@@ -64,12 +64,47 @@ def test_workflow_preserves_step_and_repeat_order(
     ]
 
 
+def test_zero_repeat_skips_group(tmp_path: Path) -> None:
+    tree = load_tree(tmp_path)
+    workflow = [
+        {
+            "name": "skipped",
+            "repeat": 0,
+            "steps": [{"task_id": "missing_task"}],
+        },
+        {
+            "name": "active",
+            "repeat": 1,
+            "steps": [
+                {
+                    "task_id": "task_1",
+                    "action_id": "wait_1",
+                }
+            ],
+        },
+    ]
+
+    actions = build_action_plan(tree, workflow)
+
+    assert [action.action_id for action in actions] == ["wait_1"]
+
+
+def test_all_zero_repeat_groups_return_empty_plan(tmp_path: Path) -> None:
+    workflow = [{"name": "skipped", "repeat": 0, "steps": []}]
+
+    assert build_action_plan(load_tree(tmp_path), workflow) == []
+
+
 @pytest.mark.parametrize(
     "workflow, message",
     [
         (
-            [{"name": "bad", "repeat": 0, "steps": [{}]}],
-            "repeat >= 1",
+            [{"name": "bad", "repeat": -1, "steps": [{}]}],
+            "repeat >= 0",
+        ),
+        (
+            [{"name": "bad", "repeat": 1, "steps": []}],
+            "needs steps when repeat > 0",
         ),
         (
             [{"name": "bad", "steps": [{"action_id": "wait_1"}]}],

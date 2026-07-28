@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""ROS 2 vision trigger, target-point cache and offset service.
+"""ROS 2 detector trigger, target-pose cache and offset service.
 
 This is the Rokae ROS 2 port of ``zj_robot_bt_action/bt_target_server.py``.
-It stores JSON detections in memory and exposes selected points to behavior
-tree actions. It does not run a detector or save camera images.
+It stores JSON detections and ArUco PoseStamped results in memory and exposes
+selected poses to behavior-tree actions. It does not run a detector or save
+camera images.
 """
 
 import copy
+from functools import partial
 import json
 import math
 import threading
 import time
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-from geometry_msgs.msg import Pose
+from box_detection_interfaces.msg import BoxGrabPoints
+from geometry_msgs.msg import Pose, PoseStamped
 import rclpy
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
@@ -30,13 +33,20 @@ WALL_ANGLE_TOPIC = "/yolo_vision/wall_angle"
 MODE5_POINTS_TOPIC = "/yolo_vision/mode5_points_json"
 VISION_CONTROL_TOPIC = "/yolo_vision/control"
 TARGET_LABELS_TOPIC = "/yolo_vision/target_labels"
+ARUCO_CONTROL_TOPIC = "/aruco/enable"
+ARUCO_POSE_TOPIC = "/tool/pose"
+BOX_CONTROL_TOPIC = "/box/enable"
+BOX_POINTS_TOPIC = "/box_grab_points"
 TRIGGER_DETECT_SERVICE = "/bt_target_server/trigger_detect"
 GET_TARGET_SERVICE = "/bt_target_server/get_target"
 SET_OFFSET_SERVICE = "/bt_target_server/set_offset"
+VISION_SOURCE_YOLO = "yolo"
+VISION_SOURCE_ARUCO = "aruco"
+VISION_SOURCE_BOX_GRAB_POINTS = "box_grab_points"
 
 
 class VisionTargetServer(Node):
-    """Cache detector JSON and return points using motion modes 1 through 6."""
+    """Cache detector results and return motion-mode target poses."""
 
     def __init__(self) -> None:
         super().__init__("bt_target_server")
@@ -45,7 +55,8 @@ class VisionTargetServer(Node):
         self._init_state()
         self._init_interfaces()
         self.get_logger().info(
-            "vision target services ready: trigger_detect, get_target, "
+            "vision target services ready: YOLO JSON, ArUco tool pose, "
+            "and box left/right points; trigger_detect, get_target, "
             "set_offset"
         )
 
@@ -56,6 +67,17 @@ class VisionTargetServer(Node):
         self.latest_front_detection: Optional[Dict[str, Any]] = None
         self.latest_wall_angle: Optional[Dict[str, Any]] = None
         self.latest_mode5_detection: Optional[Dict[str, Any]] = None
+        self.latest_aruco_pose: Optional[PoseStamped] = None
+        self.latest_aruco_poses: Dict[
+            str, Optional[PoseStamped]
+        ] = {}
+        self.latest_box_points: Dict[
+            str, Optional[BoxGrabPoints]
+        ] = {}
+        self.aruco_pose_subscriptions = {}
+        self.aruco_control_publishers = {}
+        self.box_point_subscriptions = {}
+        self.box_control_publishers = {}
         self.offset_map = {"default": self._identity_offset()}
         self.active_offset_id = "default"
 
@@ -73,6 +95,12 @@ class VisionTargetServer(Node):
         self.declare_parameter(
             "target_labels_topic", TARGET_LABELS_TOPIC
         )
+        self.declare_parameter(
+            "aruco_control_topic", ARUCO_CONTROL_TOPIC
+        )
+        self.declare_parameter("aruco_pose_topic", ARUCO_POSE_TOPIC)
+        self.declare_parameter("aruco_frame_id", "base_link")
+        self.declare_parameter("box_frame_id", "base_link")
         self.declare_parameter("detection_timeout_s", 5.0)
         self.declare_parameter("post_detection_delay_s", 1.0)
 
@@ -86,6 +114,12 @@ class VisionTargetServer(Node):
         ).value
         labels_topic = self.get_parameter(
             "target_labels_topic"
+        ).value
+        aruco_control_topic = self.get_parameter(
+            "aruco_control_topic"
+        ).value
+        aruco_pose_topic = self.get_parameter(
+            "aruco_pose_topic"
         ).value
 
         self.create_subscription(
@@ -109,8 +143,27 @@ class VisionTargetServer(Node):
             10,
             callback_group=self._callbacks,
         )
+        self.aruco_pose_subscription = self.create_subscription(
+            PoseStamped,
+            aruco_pose_topic,
+            partial(
+                self._aruco_pose_callback,
+                topic=aruco_pose_topic,
+            ),
+            10,
+            callback_group=self._callbacks,
+        )
         self.control_publisher = self.create_publisher(
             Int32, control_topic, 10
+        )
+        self.aruco_control_publisher = self.create_publisher(
+            Int32, aruco_control_topic, 10
+        )
+        self.aruco_pose_subscriptions[aruco_pose_topic] = (
+            self.aruco_pose_subscription
+        )
+        self.aruco_control_publishers[aruco_control_topic] = (
+            self.aruco_control_publisher
         )
         self.labels_publisher = self.create_publisher(
             String, labels_topic, 10
@@ -158,6 +211,19 @@ class VisionTargetServer(Node):
             with self._lock:
                 self.latest_mode5_detection = detection
 
+    def _aruco_pose_callback(
+        self, message: PoseStamped, *, topic: str = ARUCO_POSE_TOPIC
+    ) -> None:
+        with self._lock:
+            self.latest_aruco_pose = copy.deepcopy(message)
+            self.latest_aruco_poses[topic] = copy.deepcopy(message)
+
+    def _box_points_callback(
+        self, message: BoxGrabPoints, *, topic: str
+    ) -> None:
+        with self._lock:
+            self.latest_box_points[topic] = copy.deepcopy(message)
+
     def _parse_json_message(
         self, contents: str, description: str
     ) -> Optional[Dict[str, Any]]:
@@ -196,9 +262,38 @@ class VisionTargetServer(Node):
             if str(value).strip()
         ]
 
-    def _reset_latest(self, trigger_value: int) -> None:
+    @staticmethod
+    def _normalize_source(value: Any) -> str:
+        source = str(value or VISION_SOURCE_YOLO).strip().lower()
+        if source not in (
+            VISION_SOURCE_YOLO,
+            VISION_SOURCE_ARUCO,
+            VISION_SOURCE_BOX_GRAB_POINTS,
+        ):
+            raise ValueError(
+                f"unsupported vision source {value!r}; "
+                "use 'yolo', 'aruco', or 'box_grab_points'"
+            )
+        return source
+
+    @staticmethod
+    def _default_topics(source: str) -> Tuple[str, str]:
+        if source == VISION_SOURCE_ARUCO:
+            return ARUCO_CONTROL_TOPIC, ARUCO_POSE_TOPIC
+        if source == VISION_SOURCE_BOX_GRAB_POINTS:
+            return BOX_CONTROL_TOPIC, BOX_POINTS_TOPIC
+        return VISION_CONTROL_TOPIC, VISION_POINTS_TOPIC
+
+    def _reset_latest(
+        self, source: str, trigger_value: int, echo_topic: str
+    ) -> None:
         with self._lock:
-            if trigger_value == 3:
+            if source == VISION_SOURCE_ARUCO:
+                self.latest_aruco_pose = None
+                self.latest_aruco_poses[echo_topic] = None
+            elif source == VISION_SOURCE_BOX_GRAB_POINTS:
+                self.latest_box_points[echo_topic] = None
+            elif trigger_value == 3:
                 self.latest_wall_angle = None
             elif trigger_value == 5:
                 self.latest_mode5_detection = None
@@ -217,56 +312,212 @@ class VisionTargetServer(Node):
                 value = self.latest_front_detection
             return copy.deepcopy(value)
 
+    def _latest_aruco(
+        self, topic: str = ARUCO_POSE_TOPIC
+    ) -> Optional[PoseStamped]:
+        with self._lock:
+            return copy.deepcopy(self.latest_aruco_poses.get(topic))
+
+    def _latest_box(
+        self, topic: str = BOX_POINTS_TOPIC
+    ) -> Optional[BoxGrabPoints]:
+        with self._lock:
+            return copy.deepcopy(self.latest_box_points.get(topic))
+
+    def _ensure_typed_interfaces(
+        self, source: str, pub_topic: str, echo_topic: str
+    ):
+        if source == VISION_SOURCE_ARUCO:
+            if echo_topic not in self.aruco_pose_subscriptions:
+                self.aruco_pose_subscriptions[echo_topic] = (
+                    self.create_subscription(
+                        PoseStamped,
+                        echo_topic,
+                        partial(
+                            self._aruco_pose_callback,
+                            topic=echo_topic,
+                        ),
+                        10,
+                        callback_group=self._callbacks,
+                    )
+                )
+            if pub_topic not in self.aruco_control_publishers:
+                self.aruco_control_publishers[pub_topic] = (
+                    self.create_publisher(Int32, pub_topic, 10)
+                )
+            return (
+                self.aruco_control_publishers[pub_topic],
+                partial(self._latest_aruco, echo_topic),
+            )
+
+        if echo_topic not in self.box_point_subscriptions:
+            self.box_point_subscriptions[echo_topic] = (
+                self.create_subscription(
+                    BoxGrabPoints,
+                    echo_topic,
+                    partial(
+                        self._box_points_callback,
+                        topic=echo_topic,
+                    ),
+                    10,
+                    callback_group=self._callbacks,
+                )
+            )
+        if pub_topic not in self.box_control_publishers:
+            self.box_control_publishers[pub_topic] = (
+                self.create_publisher(Int32, pub_topic, 10)
+            )
+        return (
+            self.box_control_publishers[pub_topic],
+            partial(self._latest_box, echo_topic),
+        )
+
+    @staticmethod
+    def _wait_for_subscriber(publisher, timeout_s: float = 2.0) -> bool:
+        deadline = time.monotonic() + timeout_s
+        while rclpy.ok() and time.monotonic() < deadline:
+            if publisher.get_subscription_count() > 0:
+                return True
+            time.sleep(0.05)
+        return publisher.get_subscription_count() > 0
+
+    @staticmethod
+    def _wait_for_latest(
+        latest: Callable[[], Optional[Any]],
+        timeout_s: float,
+        post_detection_delay_s: float,
+    ) -> Optional[Any]:
+        deadline = time.monotonic() + timeout_s
+        while rclpy.ok() and time.monotonic() < deadline:
+            if latest() is not None:
+                if post_detection_delay_s > 0.0:
+                    time.sleep(post_detection_delay_s)
+                # Read again after the settling delay so the cached value is
+                # the newest frame, not the first frame that was detected.
+                return latest()
+            time.sleep(0.05)
+        return None
+
     def _handle_trigger_detect(
         self,
         request: GetVisionTarget.Request,
         response: GetVisionTarget.Response,
     ) -> GetVisionTarget.Response:
+        try:
+            source = self._normalize_source(request.source)
+        except ValueError as exc:
+            response.success = False
+            response.message = str(exc)
+            return response
+        default_pub_topic, default_echo_topic = self._default_topics(source)
+        pub_topic = request.pub_topic.strip() or default_pub_topic
+        echo_topic = request.echo_topic.strip() or default_echo_topic
         key = request.key.strip() or "1-1-1-2"
         trigger_value = int(request.trigger_value)
         labels = self._normalize_strings(request.labels)
         point_names = self._normalize_strings(request.point_names)
-        motion_mode = self._normalize_motion_mode(request.motion_mode)
-        if motion_mode == 1 and len(point_names) == 1:
+        # Zero is the behavior-tree cache-only request. Non-zero values remain
+        # supported here for older direct service callers.
+        motion_mode = int(request.motion_mode)
+        if motion_mode < 0 or motion_mode > 6:
+            response.success = False
+            response.message = "motion_mode must be 0 through 6"
+            return response
+        if (
+            source == VISION_SOURCE_YOLO
+            and motion_mode == 1
+            and len(point_names) == 1
+        ):
             motion_mode = 6 if trigger_value == 5 else 4
 
-        self._reset_latest(trigger_value)
-        self.labels_publisher.publish(
-            String(data=json.dumps(labels, ensure_ascii=False))
-        )
-        self.control_publisher.publish(Int32(data=trigger_value))
+        if source == VISION_SOURCE_ARUCO:
+            validation_error = self._validate_aruco_request(
+                trigger_value, labels, point_names
+            )
+        elif source == VISION_SOURCE_BOX_GRAB_POINTS:
+            validation_error = self._validate_box_request(
+                trigger_value, labels, point_names
+            )
+        else:
+            validation_error = ""
+        if validation_error:
+            response.success = False
+            response.message = validation_error
+            return response
+
+        if source in (
+            VISION_SOURCE_ARUCO,
+            VISION_SOURCE_BOX_GRAB_POINTS,
+        ):
+            control_publisher, latest = self._ensure_typed_interfaces(
+                source, pub_topic, echo_topic
+            )
+            if not self._wait_for_subscriber(control_publisher):
+                detector = (
+                    "aruco_tool_launch.py"
+                    if source == VISION_SOURCE_ARUCO
+                    else "big_box_detection_node"
+                )
+                response.success = False
+                response.message = (
+                    f"{pub_topic} has no subscriber; start {detector} "
+                    "first"
+                )
+                return response
+
+        self._reset_latest(source, trigger_value, echo_topic)
+        if source == VISION_SOURCE_YOLO:
+            self.labels_publisher.publish(
+                String(data=json.dumps(labels, ensure_ascii=False))
+            )
+            control_publisher = self.control_publisher
+            latest = partial(
+                self._latest_for_trigger, trigger_value
+            )
+        control_publisher.publish(Int32(data=trigger_value))
         self.get_logger().info(
-            f"vision trigger: key={key}, value={trigger_value}, "
-            f"mode={motion_mode}, points={point_names}"
+            f"vision trigger: source={source}, key={key}, "
+            f"value={trigger_value}, "
+            f"pub_topic={pub_topic}, echo_topic={echo_topic}, "
+            f"points={point_names}"
         )
 
-        detection = None
         timeout_s = float(
             self.get_parameter("detection_timeout_s").value
         )
-        deadline = time.monotonic() + timeout_s
+        delay_s = float(
+            self.get_parameter("post_detection_delay_s").value
+        )
         try:
-            while rclpy.ok() and time.monotonic() < deadline:
-                detection = self._latest_for_trigger(trigger_value)
-                if detection is not None:
-                    delay_s = float(
-                        self.get_parameter(
-                            "post_detection_delay_s"
-                        ).value
-                    )
-                    if delay_s > 0.0:
-                        time.sleep(delay_s)
-                    break
-                time.sleep(0.05)
+            detection = self._wait_for_latest(
+                latest, timeout_s, delay_s
+            )
         finally:
-            self.control_publisher.publish(Int32(data=0))
+            control_publisher.publish(Int32(data=0))
 
         if detection is None:
             response.success = False
             response.message = (
-                f"no vision data received within {timeout_s:.1f} s"
+                f"no {source} vision data received within "
+                f"{timeout_s:.1f} s"
             )
             return response
+        if source == VISION_SOURCE_ARUCO:
+            return self._cache_aruco_result(
+                response,
+                key,
+                detection,
+                point_names,
+                motion_mode,
+            )
+        if source == VISION_SOURCE_BOX_GRAB_POINTS:
+            return self._cache_box_result(
+                response,
+                key,
+                detection,
+                point_names,
+                motion_mode,
+            )
         if labels and not self._detection_matches_labels(
             detection, labels
         ):
@@ -279,6 +530,10 @@ class VisionTargetServer(Node):
 
         with self._lock:
             self._cache_detection(key, detection)
+        if motion_mode == 0:
+            response.success = True
+            response.message = "cached"
+            return response
         if not point_names:
             point_names = (
                 ["left", "right"]
@@ -288,6 +543,175 @@ class VisionTargetServer(Node):
         return self._fill_selected_response(
             response, key, point_names, motion_mode
         )
+
+    @staticmethod
+    def _validate_aruco_request(
+        trigger_value: int,
+        labels: Sequence[str],
+        point_names: Sequence[str],
+    ) -> str:
+        if trigger_value != 1:
+            return "ArUco trigger_value must be 1"
+        if labels:
+            return "ArUco source does not support labels"
+        if len(point_names) != 1:
+            return "ArUco points must contain exactly one point name"
+        return ""
+
+    @staticmethod
+    def _validate_box_request(
+        trigger_value: int,
+        labels: Sequence[str],
+        point_names: Sequence[str],
+    ) -> str:
+        if trigger_value != 1:
+            return "box_grab_points trigger_value must be 1"
+        if labels:
+            return "box_grab_points source does not support labels"
+        if len(point_names) != 2:
+            return (
+                "box_grab_points points must contain exactly two "
+                "point names"
+            )
+        return ""
+
+    def _cache_aruco_result(
+        self,
+        response: GetVisionTarget.Response,
+        key: str,
+        message: PoseStamped,
+        point_names: Sequence[str],
+        motion_mode: int,
+    ) -> GetVisionTarget.Response:
+        expected_frame = str(
+            self.get_parameter("aruco_frame_id").value
+        ).strip()
+        actual_frame = message.header.frame_id.strip()
+        if expected_frame and actual_frame != expected_frame:
+            response.success = False
+            response.message = (
+                "ArUco pose frame mismatch: "
+                f"expected={expected_frame!r}, received={actual_frame!r}"
+            )
+            return response
+        try:
+            pose = self._validated_pose_copy(message.pose)
+        except ValueError as exc:
+            response.success = False
+            response.message = f"invalid ArUco pose: {exc}"
+            return response
+
+        point_name = point_names[0]
+        with self._lock:
+            self.detection_cache[key] = {
+                "source": VISION_SOURCE_ARUCO,
+                "frame_id": actual_frame,
+                "point": point_name,
+            }
+            self.point_cache[key] = {point_name: pose}
+        self.get_logger().info(
+            "cached latest ArUco pose: "
+            f"key={key}, point={point_name}, frame={actual_frame}, "
+            f"xyz=({pose.position.x:.6f}, "
+            f"{pose.position.y:.6f}, {pose.position.z:.6f})"
+        )
+        if motion_mode == 0:
+            response.success = True
+            response.message = "cached"
+            return response
+        return self._fill_selected_response(
+            response, key, point_names, motion_mode
+        )
+
+    def _cache_box_result(
+        self,
+        response: GetVisionTarget.Response,
+        key: str,
+        message: BoxGrabPoints,
+        point_names: Sequence[str],
+        motion_mode: int,
+    ) -> GetVisionTarget.Response:
+        expected_frame = str(
+            self.get_parameter("box_frame_id").value
+        ).strip()
+        actual_frame = message.header.frame_id.strip()
+        if expected_frame and actual_frame != expected_frame:
+            response.success = False
+            response.message = (
+                "box point frame mismatch: "
+                f"expected={expected_frame!r}, received={actual_frame!r}"
+            )
+            return response
+
+        values = (
+            message.left_center.x,
+            message.left_center.y,
+            message.left_center.z,
+            message.right_center.x,
+            message.right_center.y,
+            message.right_center.z,
+            message.angle_deg,
+        )
+        if not all(math.isfinite(float(value)) for value in values):
+            response.success = False
+            response.message = "box points and angle_deg must be finite"
+            return response
+
+        left_pose = self._make_pose(*values[:3])
+        right_pose = self._make_pose(*values[3:6])
+        with self._lock:
+            self.detection_cache[key] = {
+                "source": VISION_SOURCE_BOX_GRAB_POINTS,
+                "frame_id": actual_frame,
+                "angle_deg": float(message.angle_deg),
+                "points": list(point_names),
+            }
+            self.point_cache[key] = {
+                point_names[0]: left_pose,
+                point_names[1]: right_pose,
+            }
+        self.get_logger().info(
+            "cached latest box grab points: "
+            f"key={key}, frame={actual_frame}, "
+            f"{point_names[0]}=({values[0]:.6f}, "
+            f"{values[1]:.6f}, {values[2]:.6f}), "
+            f"{point_names[1]}=({values[3]:.6f}, "
+            f"{values[4]:.6f}, {values[5]:.6f}), "
+            f"angle_deg={values[6]:.3f}"
+        )
+        if motion_mode == 0:
+            response.success = True
+            response.message = "cached"
+            return response
+        return self._fill_selected_response(
+            response, key, point_names, motion_mode
+        )
+
+    @staticmethod
+    def _validated_pose_copy(pose: Pose) -> Pose:
+        result = copy.deepcopy(pose)
+        values = [
+            result.position.x,
+            result.position.y,
+            result.position.z,
+            result.orientation.x,
+            result.orientation.y,
+            result.orientation.z,
+            result.orientation.w,
+        ]
+        if not all(math.isfinite(float(value)) for value in values):
+            raise ValueError("position and orientation must be finite")
+        quaternion = values[3:]
+        norm = math.sqrt(
+            sum(float(value) * float(value) for value in quaternion)
+        )
+        if norm <= 1.0e-9:
+            raise ValueError("orientation quaternion must be non-zero")
+        result.orientation.x /= norm
+        result.orientation.y /= norm
+        result.orientation.z /= norm
+        result.orientation.w /= norm
+        return result
 
     def _handle_get_target(
         self,

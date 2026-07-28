@@ -27,6 +27,7 @@ def test_runner_defaults_to_safe_dry_run() -> None:
     assert not config.require_confirmation
     assert config.confirmation_phrase == "EXECUTE"
     assert not config.continue_on_action_fail
+    assert not config.skip_navigation
 
 
 def test_runner_builds_explicit_execution_policy() -> None:
@@ -34,11 +35,14 @@ def test_runner_builds_explicit_execution_policy() -> None:
     add_common_runner_args(parser)
 
     config = build_config_from_args(
-        parser.parse_args(["--execute", "--continue-on-action-fail"])
+        parser.parse_args(
+            ["--execute", "--continue-on-action-fail", "--skip-nav"]
+        )
     )
 
     assert config.execute
     assert config.continue_on_action_fail
+    assert config.skip_navigation
 
 
 def test_control_defaults_to_execution_and_supports_dry_run() -> None:
@@ -168,3 +172,54 @@ def test_control_dry_run_does_not_initialize(monkeypatch) -> None:
     )
 
     assert executor.execute_actions(tree, [action]) == 0
+
+
+def test_skip_nav_removes_navigation_before_execution(
+    monkeypatch, capsys
+) -> None:
+    navigation = ActionSpec(
+        task_id="task",
+        task_name="task",
+        location_id="location",
+        location_name="location",
+        behavior_id="behavior",
+        behavior_name="behavior",
+        action_id="navigate",
+        action_name="navigate",
+        action_type="navigate",
+        enabled=True,
+        optional=False,
+        parameters={"command": "LM2"},
+    )
+    wait = ActionSpec(
+        task_id="task",
+        task_name="task",
+        location_id="location",
+        location_name="location",
+        behavior_id="behavior",
+        behavior_name="behavior",
+        action_id="wait",
+        action_name="wait",
+        action_type="wait",
+        enabled=True,
+        optional=False,
+        parameters={"duration_s": 0.0},
+    )
+    tree = BehaviorTree(
+        source=Path("tree.yaml"),
+        execution_locked=False,
+        actions=[navigation, wait],
+    )
+    executor = BehaviorTreeExecutor(
+        RunnerConfig(execute=True, skip_navigation=True)
+    )
+    executed = []
+    monkeypatch.setattr(
+        executor,
+        "_run_actions",
+        lambda actions: executed.extend(actions) or 0,
+    )
+
+    assert executor.execute_actions(tree, [navigation, wait]) == 0
+    assert executed == [wait]
+    assert "Navigation skipped by --skip-nav" in capsys.readouterr().out

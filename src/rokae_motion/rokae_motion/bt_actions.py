@@ -93,6 +93,17 @@ class HandBehavior(BehaviorAction):
         executor.control_hand(action.parameters)
 
 
+class NavigateBehavior(BehaviorAction):
+    """Send one scheduler station command and wait for chassis arrival."""
+
+    action_type = "navigate"
+
+    def execute(
+        self, executor: "RokaeActionExecutor", action: "ActionSpec"
+    ) -> None:
+        executor.navigate(action.parameters)
+
+
 class WaitBehavior(BehaviorAction):
     """Pause the sequence while keeping ROS callbacks responsive."""
 
@@ -113,6 +124,7 @@ BEHAVIORS: Dict[str, BehaviorAction] = {
         VisionBehavior(),
         MoveLVisionBehavior(),
         HandBehavior(),
+        NavigateBehavior(),
         WaitBehavior(),
     )
 }

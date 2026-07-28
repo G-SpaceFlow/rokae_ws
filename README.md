@@ -193,6 +193,7 @@ the controller's safety configuration.
 bt_runner
 bt_control
 vision_target_server
+chassis_navigation
 ```
 
 ### Behavior-tree runner
@@ -204,7 +205,7 @@ task -> location -> behavior -> action
 ```
 
 The supported action types are `move_absj`, `move_l`, `move_l_relative`,
-`vision`, `move_l_vision`, `hand` and `wait`.
+`vision`, `move_l_vision`, `navigate`, `hand` and `wait`.
 The Python files have deliberately separate responsibilities:
 
 ```text
@@ -214,6 +215,7 @@ bt_runner_config.py   dry-run, confirmation and failure policy
 bt_executor.py        YAML parsing, validation, filtering and execution flow
 bt_actions.py         concrete arm, hand and Wait behaviors
 executor_services.py  low-level ROS 2 action and service calls
+chassis_navigation.py scheduler-command to Seer station bridge
 vision_motion.py      pure motion_mode 1-6 target calculations
 vision_target_server.py  detector trigger and in-memory target cache
 ```
@@ -322,6 +324,51 @@ reference humanoid project, Rokae has no waist frame, so
 Euler angles in radians, not increments added to the current orientation. If
 only `left` or `right` is present, only that arm receives a service request.
 
+### Seer station navigation
+
+The `navigate` behavior uses the same station IDs as the Seer map:
+
+```text
+LM1 -> ARRIVE_HOME
+LM2 -> ARRIVE_A
+LM3 -> ARRIVE_B
+```
+
+Start the bridge by itself:
+
+```bash
+ros2 run rokae_motion chassis_navigation
+```
+
+Or include it in the bringup launch:
+
+```bash
+ros2 launch rokae_bringup dual_arm.launch.py \
+  start_chassis_navigation:=true
+```
+
+The Seer driver must provide the `/seer/navigate` Action. Navigation belongs
+to the `location` entry and runs once before that location's behaviors:
+
+```yaml
+locations:
+  - id: navigate_to_a
+    name: navigate_chassis_to_a
+    command: LM2
+    behaviors:
+      # The location's behaviors run after ARRIVE_A.
+      ...
+```
+
+The stable navigation type and connection/response timeouts are stored in
+`rokae_motion/config/navigation.yaml`, so behavior trees only contain the
+per-location command.
+
+Use `--skip-nav` with either `bt_runner` or `bt_control` to omit all enabled
+location navigation. A timeout, navigation failure or Ctrl+C requests
+`/bt_navigation_server/cancel_navigation`, with the Seer cancellation service
+used as a fallback.
+
 ### Vision target cache and motion modes
 
 The ROS 2 port keeps the reference project's topic and service names:
@@ -332,9 +379,13 @@ subscribed JSON:
   /yolo_vision/wall_angle
   /yolo_vision/mode5_points_json
 
+subscribed ArUco pose:
+  /tool/pose
+
 published triggers:
   /yolo_vision/control
   /yolo_vision/target_labels
+  /aruco/enable
 
 services:
   /bt_target_server/trigger_detect
@@ -342,17 +393,17 @@ services:
   /bt_target_server/set_offset
 ```
 
-This component stores parsed detector JSON, named points and scalar offsets in
-memory. It does not save RGB/depth images and its cache is cleared when the
-node restarts. The detector itself must be started separately and publish one
-of the JSON topics above.
+This component stores parsed detector JSON, named points, box left/right
+points, scalar offsets and ArUco tool poses in memory. It does not save
+RGB/depth images and its cache is cleared when the node restarts. The detector
+itself must be started separately.
 
 Trigger and cache a pair of points manually:
 
 ```bash
 ros2 service call /bt_target_server/trigger_detect \
   rokae_interfaces/srv/GetVisionTarget \
-  "{key: sample, trigger_value: 2, labels: [tray], motion_mode: 1, \
+  "{source: yolo, key: sample, trigger_value: 2, labels: [tray], motion_mode: 0, \
 point_names: [left, right]}"
 ```
 
@@ -364,8 +415,33 @@ ros2 service call /bt_target_server/get_target \
   "{key: sample, motion_mode: 1, point_names: [left, right]}"
 ```
 
-Use `type: vision` to trigger and cache data, followed by
-`type: move_l_vision` to consume it. The six imported modes are:
+For the ArUco tool detector, start `aruco_tool_launch.py` separately and use:
+
+```yaml
+- id: detect_tool
+  name: detect_target
+  type: vision
+  source: aruco
+  echo_topic: /tool/pose
+  pub_topic: /aruco/enable
+  key: "1-1-1-1"
+  trigger_value: 1
+  points: [tool]
+```
+
+`pub_topic` and `echo_topic` select the actual trigger publisher and result
+subscription used by `vision_target_server`. It publishes `1`, waits for the
+first result, continues sampling for one second, caches the newest complete
+result, and then publishes `0`.
+
+The two-point box detector uses `source: box_grab_points`,
+`pub_topic: /box/enable`, `echo_topic: /box_grab_points`, and
+`points: [left_center, right_center]`. Its `BoxGrabPoints` message must use
+`base_link`.
+
+Use `type: vision` only to trigger and cache data, followed by
+`type: move_l_vision` to consume it. `motion_mode` belongs only on the
+`move_l_vision` action. Its six imported modes are:
 
 1. Two named points become independent absolute left/right targets.
 2. One point becomes the desired dual-arm midpoint while preserving the
@@ -376,8 +452,9 @@ Use `type: vision` to trigger and cache data, followed by
 6. A cached scalar such as `y_offset` corrects a selected axis and hand set.
 
 Modes 4, 5 and 6 support a skip threshold. Modes 2 through 6 preserve current
-orientation unless an absolute `rx`, `ry` or `rz` is written. Mode 1 uses the
-absolute quaternion orientations in the active entry from
+orientation unless an absolute `rx`, `ry` or `rz` is written. Mode 1 can add
+per-arm `dx/dy/dz` offsets and absolute RPY from `relative_offset`; omitted
+orientation axes fall back to the active entry in
 `config/vision_offsets.yaml`.
 
 The full locked template for all six modes is

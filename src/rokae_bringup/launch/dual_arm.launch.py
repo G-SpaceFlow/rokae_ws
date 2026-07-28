@@ -25,6 +25,9 @@ def generate_launch_description() -> LaunchDescription:
     start_move_server = LaunchConfiguration("start_move_server")
     start_movel_service = LaunchConfiguration("start_movel_service")
     start_state_publisher = LaunchConfiguration("start_state_publisher")
+    start_chassis_navigation = LaunchConfiguration(
+        "start_chassis_navigation"
+    )
     start_vision_target_server = LaunchConfiguration(
         "start_vision_target_server"
     )
@@ -60,6 +63,13 @@ def generate_launch_description() -> LaunchDescription:
                 "start_state_publisher",
                 default_value="true",
                 description="Publish both arms' joints and TCP poses",
+            ),
+            DeclareLaunchArgument(
+                "start_chassis_navigation",
+                default_value="false",
+                description=(
+                    "Start the scheduler-to-Seer chassis navigation bridge"
+                ),
             ),
             DeclareLaunchArgument(
                 "start_vision_target_server",
@@ -102,6 +112,12 @@ def generate_launch_description() -> LaunchDescription:
                 output="screen",
                 parameters=[parameters_file],
                 condition=IfCondition(start_state_publisher),
+            ),
+            Node(
+                package="rokae_motion",
+                executable="chassis_navigation",
+                output="screen",
+                condition=IfCondition(start_chassis_navigation),
             ),
             Node(
                 package="rokae_motion",

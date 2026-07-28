@@ -1,5 +1,7 @@
 # Trigger or read one cached vision result.
 #
+# trigger_detect uses motion_mode=0 to cache only.
+# get_target and legacy trigger_detect callers use:
 # motion_mode:
 #   1 = two named points for left/right arms
 #   2 = one point used as the desired dual-arm midpoint
@@ -7,6 +9,10 @@
 #   4 = one point used by target/current point-delta correction
 #   5 = one point used by independent left/right point-delta correction
 #   6 = one scalar value encoded in left_pose.position.x
+# source: "yolo", "aruco", or "box_grab_points".
+string source
+string echo_topic
+string pub_topic
 string key
 int32 trigger_value
 string[] labels

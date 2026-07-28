@@ -22,12 +22,14 @@ are declared by `rokae_motion`:
 | --- | --- |
 | `rclpy` | ROS 2 nodes, action clients and service clients |
 | `action_msgs` | Inspect MoveAbsJ action result status |
+| `box_detection_interfaces` | Receive typed box left/right grasp points |
 | `control_msgs` | `FollowJointTrajectory` MoveAbsJ goals |
 | `trajectory_msgs` | MoveAbsJ trajectory points |
-| `geometry_msgs` | Standard Cartesian poses at the orchestration layer |
-| `std_msgs` | Vision JSON subscriptions and detector trigger/label topics |
-| `std_srvs` | `bt_control` calls the explicit dual-arm initialization trigger |
+| `geometry_msgs` | Cartesian targets and ArUco `/tool/pose` input |
+| `std_msgs` | Vision trigger topics and scheduler station navigation topics |
+| `std_srvs` | Arm initialization and Seer navigation cancellation triggers |
 | `rokae_interfaces` | Call the Rokae MoveL and Linker Hand services |
+| `seer_interfaces` | Send station goals through the Seer `Navigate` Action |
 | `ament_index_python` | Locate installed YAML configuration |
 | `python3-yaml` / `PyYAML` | Load and validate behavior-tree YAML |
 
@@ -41,7 +43,7 @@ them:
 | Dependency | Add when |
 | --- | --- |
 | `sensor_msgs` | A workflow directly consumes joint or sensor feedback |
-| `nav_msgs` | Mobile-base navigation becomes part of the tree |
+| `nav_msgs` | A future coordinate/odometry navigation action needs it |
 
 They should be declared only when an implemented action imports them.
 
@@ -73,7 +75,7 @@ interfaces. They must not be copied into this ROS 2 package.
 | `robot_bt_action/GetTarget` | `rokae_interfaces/GetVisionTarget` |
 | `robot_bt_action/SetOffset` | `rokae_interfaces/SetVisionOffset` |
 | whole-body IK and waist control | Intentionally not ported |
-| custom navigation services | Not available; define only when the base enters scope |
+| custom navigation services | Scheduler commands and the Seer `Navigate` Action through `chassis_navigation.py` |
 
 ## Current implementation boundary
 
@@ -81,12 +83,17 @@ The lightweight interpreter currently provides:
 
 1. A YAML schema with `task/location/behavior/action`.
 2. An executor that selects `task_id`, `behavior_id`, or `action_id`.
-3. Separate adapters for MoveAbsJ, MoveL, visual MoveL, Linker Hand and wait
-   actions.
+3. Separate adapters for MoveAbsJ, MoveL, visual MoveL, Linker Hand, Seer
+   station navigation and wait actions.
 4. Dry-run validation by default for `bt_runner`.
 5. An `op.cpp`-style dual-arm initialization request before a real
    `bt_control` workflow.
 6. The reference vision trigger/cache and motion modes 1 through 6 without
    whole-body IK or waist transforms.
+7. Seer station targets `LM1`, `LM2` and `LM3`, completion feedback,
+   `--skip-nav`, timeout handling and Action cancellation. Stable navigation
+   defaults are loaded from `config/navigation.yaml`.
 
-Navigation remains outside the current interface boundary.
+Coordinate-based `x/y/yaw` navigation, odometry correction and the reference
+project's `twice_move` controller remain outside the current interface
+boundary.

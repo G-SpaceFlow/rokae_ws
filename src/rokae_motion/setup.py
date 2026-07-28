@@ -65,6 +65,10 @@ setup(
                 "vision_target_server = "
                 "rokae_motion.vision_target_server:main"
             ),
+            (
+                "chassis_navigation = "
+                "rokae_motion.chassis_navigation:main"
+            ),
         ],
     },
 )
