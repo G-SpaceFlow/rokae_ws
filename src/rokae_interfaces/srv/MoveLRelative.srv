@@ -1,0 +1,17 @@
+# Translation relative to the current TCP pose, expressed in the robot's
+# configured external-reference frame, in metres.
+float64[3] translation
+# Per-axis absolute-orientation override for [rx, ry, rz].
+# true uses the corresponding orientation_rpy value; false preserves the
+# corresponding current TCP orientation component.
+bool[3] orientation_override
+# Absolute XYZ Euler orientation values in radians. Values whose
+# orientation_override entry is false are ignored.
+float64[3] orientation_rpy
+# TCP linear speed in mm/s.
+float64 speed_mm_s
+# Blending radius in mm; use 0 for an exact stop.
+float64 zone_mm
+---
+bool success
+string message

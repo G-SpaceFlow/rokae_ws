@@ -1,0 +1,94 @@
+# Safe example: dry-run works, but --execute is blocked until this is false.
+version: 1
+execution_locked: false
+
+tasks:
+  - id: task_001
+    name: dual_arm_debug
+    locations:
+      - id: location_001
+        name: robot_cell
+        behaviors:
+          - id: behavior_001
+            name: basic_motion_sequence
+            actions:
+              # Disabled actions may keep null placeholders. Replace every
+              # value and set enabled: true only after checking live feedback.
+              - id: action_001
+                name: move_to_joint_target
+                type: move_absj
+                enabled: true
+                targets:
+                  left: [1.167045, 1.300690, -1.524894, 0.588013, -0.254441, 0.509970, -0.364911]
+                  right: [-1.652252, 1.369718, 1.524893, 0.984033,  0.261897, 0.196173, -0.145317]
+
+              - id: action_002
+                name: settle
+                type: wait
+                duration_s: 1.0
+
+              - id: action_003
+                name: right_linear_move
+                type: move_l
+                enabled: true
+                optional: false
+                targets:
+                  left:
+                    # [x, y, z, rx, ry, rz]: m and XYZ Euler rad
+                    pose: [0.5071, 0.3601, -0.3326, -0.598293, -1.474371, -2.701478]
+                    elbow: -1.524893
+                speed_mm_s: 50.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0
+
+              - id: action_004
+                name: dual_arm_relative_lift
+                type: move_l_relative
+                enabled: true
+                optional: false
+                # Offsets are expressed in each arm's external-reference
+                # frame. Only write the axes that need to change:
+                # omitted dx/dy/dz mean zero displacement; omitted rx/ry/rz
+                # preserve the corresponding current orientation component.
+                # Written orientation values are absolute RPY targets.
+                # The current seven-axis elbow is always kept.
+                relative_offset:
+                  rotate_with_waist: false
+                  left:
+                    dy: -0.05
+                    # Optional absolute posture example: rz: null
+                  right:
+                    dy: 0.05
+                speed_mm_s: 30.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0
+
+
+              - id: action_005
+                name: right_linear_move
+                type: move_l
+                enabled: false
+                optional: false
+                targets:
+                  left:
+                    # [x, y, z, rx, ry, rz]: m and XYZ Euler rad
+                    pose: [0.5181, 0.1454, -0.3381, -0.598293, -1.474371, -2.701478]
+                    elbow: -1.524893
+                speed_mm_s: 50.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0
+
+
+              - id: action_006
+                name: right_linear_move
+                type: move_l
+                enabled: true
+                optional: false
+                targets:
+                  right:
+                    # [x, y, z, rx, ry, rz]: m and XYZ Euler rad
+                    pose: [0.5258, -0.1441, -0.3381, -2.801260, -1.472615, -0.573205]
+                    elbow: 1.524892
+                speed_mm_s: 50.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0

@@ -156,7 +156,7 @@ def select_arms(steps: Sequence[dict], selection: str) -> List[dict]:
 class DualMoveAbsJClient(Node):
     def __init__(self) -> None:
         super().__init__("rokae_dual_moveabsj_client")
-        self._clients = {
+        self._move_absj_action_clients = {
             side: ActionClient(self, FollowJointTrajectory, action_name)
             for side, action_name in ACTION_NAMES.items()
         }
@@ -166,7 +166,9 @@ class DualMoveAbsJClient(Node):
     def wait_for_servers(self, sides: Sequence[str]) -> None:
         for side in sides:
             action_name = ACTION_NAMES[side]
-            if not self._clients[side].wait_for_server(timeout_sec=5.0):
+            if not self._move_absj_action_clients[
+                side
+            ].wait_for_server(timeout_sec=5.0):
                 raise ProgramError(
                     f"{action_name} is unavailable; start "
                     "ros_moveabsj_action_server first"
@@ -192,7 +194,7 @@ class DualMoveAbsJClient(Node):
 
         errors = message.feedback.error.positions
         maximum_error = max((abs(value) for value in errors), default=0.0)
-        self.get_logger().info(
+        self.get_logger().debug(
             f"{side} feedback: max joint error={maximum_error:.6f} rad"
         )
 
@@ -204,7 +206,9 @@ class DualMoveAbsJClient(Node):
         )
         while rclpy.ok() and not all(future.done() for future in futures):
             if deadline is not None and time.monotonic() >= deadline:
-                raise ProgramError("timed out waiting for ROS 2 action response")
+                raise ProgramError(
+                    "timed out waiting for ROS 2 action response"
+                )
             rclpy.spin_once(self, timeout_sec=0.05)
 
     def cancel_handles(self, handles: Dict[str, object]) -> None:
@@ -230,7 +234,9 @@ class DualMoveAbsJClient(Node):
         send_futures = {}
         for side in sides:
             goal = self.make_goal(side, step[side])
-            send_futures[side] = self._clients[side].send_goal_async(
+            send_futures[side] = self._move_absj_action_clients[
+                side
+            ].send_goal_async(
                 goal,
                 feedback_callback=lambda message, selected_side=side:
                 self.feedback_callback(selected_side, message),
@@ -252,7 +258,7 @@ class DualMoveAbsJClient(Node):
 
         self._active_handles = handles
         for side in sides:
-            self.get_logger().warning(f"{side} MoveAbsJ goal accepted")
+            self.get_logger().debug(f"{side} MoveAbsJ goal accepted")
 
         result_futures = {
             side: handle.get_result_async()
@@ -389,7 +395,7 @@ def run_program(
     try:
         node = DualMoveAbsJClient()
         for index, step in enumerate(steps, start=1):
-            node.get_logger().warning(
+            node.get_logger().info(
                 f"starting step {index}/{len(steps)}: {step['name']}"
             )
             node.run_step(step)

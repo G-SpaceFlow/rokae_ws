@@ -1,0 +1,12 @@
+# Absolute TCP target in the robot external-reference frame.
+# pose = [x, y, z, rx, ry, rz], metres and XYZ Euler radians.
+float64[6] pose
+# Seven-axis arm angle in radians.
+float64 elbow
+# TCP linear speed in mm/s.
+float64 speed_mm_s
+# Blending radius in mm; use 0 for an exact stop.
+float64 zone_mm
+---
+bool success
+string message

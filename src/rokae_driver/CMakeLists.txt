@@ -12,6 +12,7 @@ find_package(control_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
+find_package(rokae_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(Threads REQUIRED)
@@ -117,15 +118,31 @@ get_filename_component(
   DIRECTORY
 )
 
+set(
+  XMATE_MODEL_LIBRARY
+  "${XCORESDK_LIBRARY_DIR}/libxMateModel.a"
+)
+
+if(NOT EXISTS "${XMATE_MODEL_LIBRARY}")
+  message(FATAL_ERROR
+    "The xCoreSDK model library does not exist: ${XMATE_MODEL_LIBRARY}")
+endif()
+
 message(STATUS "ROKAE_SDK_ROOT=${ROKAE_SDK_ROOT}")
 message(STATUS "CMAKE_SYSTEM_PROCESSOR=${CMAKE_SYSTEM_PROCESSOR}")
 message(STATUS "XCORESDK_LIBRARY=${XCORESDK_LIBRARY}")
+
+add_library(Rokae::xMateModel STATIC IMPORTED)
+set_target_properties(Rokae::xMateModel PROPERTIES
+  IMPORTED_LOCATION "${XMATE_MODEL_LIBRARY}"
+)
 
 add_library(Rokae::xCoreSDK UNKNOWN IMPORTED)
 set_target_properties(Rokae::xCoreSDK PROPERTIES
   IMPORTED_LOCATION "${XCORESDK_LIBRARY}"
   INTERFACE_INCLUDE_DIRECTORIES
     "${ROKAE_SDK_ROOT}/include;${ROKAE_SDK_ROOT}/external"
+  INTERFACE_LINK_LIBRARIES Rokae::xMateModel
 )
 
 function(configure_rokae_target target_name)
@@ -156,6 +173,16 @@ ament_target_dependencies(ros_moveabsj_action_server
 )
 
 add_executable(
+  ros_movel_service
+  src/ros_movel_service.cpp
+)
+configure_rokae_target(ros_movel_service)
+ament_target_dependencies(ros_movel_service
+  rclcpp
+  rokae_interfaces
+)
+
+add_executable(
   ros_pos_publisher
   src/ros_pos_publisher.cpp
 )
@@ -170,6 +197,7 @@ ament_target_dependencies(ros_pos_publisher
 # ROS 2 searches <install-prefix>/lib/<package-name> for node executables.
 install(TARGETS
   ros_moveabsj_action_server
+  ros_movel_service
   ros_pos_publisher
   DESTINATION lib/${PROJECT_NAME}
 )

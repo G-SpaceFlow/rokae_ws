@@ -3,7 +3,7 @@
   <name>rokae_driver</name>
   <version>0.1.0</version>
   <description>
-    ROS 2 state publishing and MoveAbsJ actions for the Rokae dual-arm system.
+    ROS 2 state publishing and motion services for the Rokae dual-arm system.
   </description>
 
   <maintainer email="tolbayoma6@gmail.com">niic</maintainer>
@@ -15,6 +15,7 @@
   <depend>geometry_msgs</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_action</depend>
+  <depend>rokae_interfaces</depend>
   <depend>sensor_msgs</depend>
   <depend>tf2</depend>
 

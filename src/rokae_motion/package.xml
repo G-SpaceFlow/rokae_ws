@@ -3,7 +3,7 @@
   <name>rokae_motion</name>
   <version>0.1.0</version>
   <description>
-    Python MoveAbsJ action clients and dual-arm motion programs for Rokae.
+    YAML behavior-tree orchestration and motion clients for Rokae.
   </description>
 
   <maintainer email="tolbayoma6@gmail.com">niic</maintainer>
@@ -14,8 +14,13 @@
   <exec_depend>action_msgs</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>control_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>rokae_interfaces</exec_depend>
   <exec_depend>trajectory_msgs</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
 
   <export>
     <build_type>ament_python</build_type>

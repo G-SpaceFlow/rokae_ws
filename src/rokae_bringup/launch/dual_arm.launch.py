@@ -1,4 +1,4 @@
-"""Start the dual-arm state publisher and MoveAbsJ action servers."""
+"""Start the dual-arm state publisher and motion servers."""
 
 from pathlib import Path
 
@@ -19,10 +19,16 @@ def generate_launch_description() -> LaunchDescription:
 
     parameters_file = LaunchConfiguration("params_file")
     start_move_server = LaunchConfiguration("start_move_server")
+    start_movel_service = LaunchConfiguration("start_movel_service")
     start_state_publisher = LaunchConfiguration("start_state_publisher")
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "start_movel_service",
+                default_value="true",
+                description="Start the dual-arm MoveL services",
+            ),
             DeclareLaunchArgument(
                 "params_file",
                 default_value=default_parameters,
@@ -37,6 +43,13 @@ def generate_launch_description() -> LaunchDescription:
                 "start_state_publisher",
                 default_value="true",
                 description="Publish both arms' joints and TCP poses",
+            ),
+            Node(
+                package="rokae_driver",
+                executable="ros_movel_service",
+                output="screen",
+                parameters=[parameters_file],
+                condition=IfCondition(start_movel_service),
             ),
             Node(
                 package="rokae_driver",
