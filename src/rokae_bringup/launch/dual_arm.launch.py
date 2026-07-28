@@ -18,12 +18,29 @@ def generate_launch_description() -> LaunchDescription:
     )
 
     parameters_file = LaunchConfiguration("params_file")
+    start_hand_service = LaunchConfiguration("start_hand_service")
+    start_initializer_service = LaunchConfiguration(
+        "start_initializer_service"
+    )
     start_move_server = LaunchConfiguration("start_move_server")
     start_movel_service = LaunchConfiguration("start_movel_service")
     start_state_publisher = LaunchConfiguration("start_state_publisher")
+    start_vision_target_server = LaunchConfiguration(
+        "start_vision_target_server"
+    )
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "start_hand_service",
+                default_value="true",
+                description="Start the dual-hand end-CAN services",
+            ),
+            DeclareLaunchArgument(
+                "start_initializer_service",
+                default_value="true",
+                description="Start the explicit dual-arm power-on service",
+            ),
             DeclareLaunchArgument(
                 "start_movel_service",
                 default_value="true",
@@ -43,6 +60,27 @@ def generate_launch_description() -> LaunchDescription:
                 "start_state_publisher",
                 default_value="true",
                 description="Publish both arms' joints and TCP poses",
+            ),
+            DeclareLaunchArgument(
+                "start_vision_target_server",
+                default_value="true",
+                description=(
+                    "Start the vision trigger and target-point cache"
+                ),
+            ),
+            Node(
+                package="rokae_driver",
+                executable="ros_robot_initializer_service",
+                output="screen",
+                parameters=[parameters_file],
+                condition=IfCondition(start_initializer_service),
+            ),
+            Node(
+                package="rokae_driver",
+                executable="ros_hand_service",
+                output="screen",
+                parameters=[parameters_file],
+                condition=IfCondition(start_hand_service),
             ),
             Node(
                 package="rokae_driver",
@@ -64,6 +102,13 @@ def generate_launch_description() -> LaunchDescription:
                 output="screen",
                 parameters=[parameters_file],
                 condition=IfCondition(start_state_publisher),
+            ),
+            Node(
+                package="rokae_motion",
+                executable="vision_target_server",
+                output="screen",
+                parameters=[parameters_file],
+                condition=IfCondition(start_vision_target_server),
             ),
         ]
     )

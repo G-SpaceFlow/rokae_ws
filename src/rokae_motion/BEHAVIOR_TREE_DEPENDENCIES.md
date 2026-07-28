@@ -25,7 +25,9 @@ are declared by `rokae_motion`:
 | `control_msgs` | `FollowJointTrajectory` MoveAbsJ goals |
 | `trajectory_msgs` | MoveAbsJ trajectory points |
 | `geometry_msgs` | Standard Cartesian poses at the orchestration layer |
-| `rokae_interfaces` | Call the Rokae MoveL services |
+| `std_msgs` | Vision JSON subscriptions and detector trigger/label topics |
+| `std_srvs` | `bt_control` calls the explicit dual-arm initialization trigger |
+| `rokae_interfaces` | Call the Rokae MoveL and Linker Hand services |
 | `ament_index_python` | Locate installed YAML configuration |
 | `python3-yaml` / `PyYAML` | Load and validate behavior-tree YAML |
 
@@ -38,7 +40,6 @@ them:
 
 | Dependency | Add when |
 | --- | --- |
-| `std_msgs` | A workflow introduces simple trigger/status topics |
 | `sensor_msgs` | A workflow directly consumes joint or sensor feedback |
 | `nav_msgs` | Mobile-base navigation becomes part of the tree |
 
@@ -68,16 +69,24 @@ interfaces. They must not be copied into this ROS 2 package.
 | `actionlib` | `rclpy.action` |
 | `upperlimb/MoveJ` | `/left_arm/move_absj`, `/right_arm/move_absj` |
 | `upperlimb/MoveL` | `/left_arm/move_l`, `/right_arm/move_l` |
-| custom hand/navigation/vision services | Not available; define only when those devices enter scope |
+| `hand/HandJoint` | `/left_arm/control_hand`, `/right_arm/control_hand` |
+| `robot_bt_action/GetTarget` | `rokae_interfaces/GetVisionTarget` |
+| `robot_bt_action/SetOffset` | `rokae_interfaces/SetVisionOffset` |
+| whole-body IK and waist control | Intentionally not ported |
+| custom navigation services | Not available; define only when the base enters scope |
 
-## Next implementation boundary
+## Current implementation boundary
 
-The next stage can add:
+The lightweight interpreter currently provides:
 
 1. A YAML schema with `task/location/behavior/action`.
 2. An executor that selects `task_id`, `behavior_id`, or `action_id`.
-3. Separate adapters for MoveAbsJ, MoveL and wait actions.
-4. Dry-run validation by default, with explicit confirmation before motion.
+3. Separate adapters for MoveAbsJ, MoveL, visual MoveL, Linker Hand and wait
+   actions.
+4. Dry-run validation by default for `bt_runner`.
+5. An `op.cpp`-style dual-arm initialization request before a real
+   `bt_control` workflow.
+6. The reference vision trigger/cache and motion modes 1 through 6 without
+   whole-body IK or waist transforms.
 
-Vision, gripper and navigation actions should wait until their ROS 2
-interfaces are specified.
+Navigation remains outside the current interface boundary.

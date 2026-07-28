@@ -102,7 +102,11 @@ def build_action_plan(
 
 def main(arguments: Optional[Sequence[str]] = None) -> int:
     options = parse_arguments(arguments)
-    executor = BehaviorTreeExecutor(build_config_from_args(options))
+    executor = BehaviorTreeExecutor(
+        build_config_from_args(
+            options, initialize_before_execute=True
+        )
+    )
     try:
         tree = executor.load_tree(BEHAVIOR_TREE_PATH)
         actions = build_action_plan(tree)

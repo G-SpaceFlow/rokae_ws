@@ -82,7 +82,7 @@ tasks:
               - id: action_006
                 name: right_linear_move
                 type: move_l
-                enabled: true
+                enabled: false
                 optional: false
                 targets:
                   right:
@@ -92,3 +92,14 @@ tasks:
                 speed_mm_s: 50.0
                 zone_mm: 0.0
                 response_timeout_s: 70.0
+
+
+              - id: hand_custom
+                name: set_dual_hand_motor_positions
+                type: hand
+                command: motors
+                targets:
+                  # M1-M6: thumb bend, thumb side swing, index, middle,
+                  # ring and little-finger bend.
+                  left: [160, 160, 160, 160, 160, 160]
+                  right: [160, 160, 160, 160, 160, 160]

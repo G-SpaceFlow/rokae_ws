@@ -25,20 +25,26 @@ rokae_ws/
 |   |   |-- package.xml
 |   |   `-- src/
 |   |       |-- ros_pos_publisher.cpp
-|   |       `-- ros_moveabsj_action_server.cpp
+|   |       |-- ros_moveabsj_action_server.cpp
+|   |       |-- ros_movel_service.cpp
+|   |       |-- ros_hand_service.cpp
+|   |       `-- ros_robot_initializer_service.cpp
 |   |
 |   |-- rokae_motion/       # Python，调用 Action 并编排动作
 |   |   |-- package.xml
 |   |   |-- setup.py
 |   |   |-- setup.cfg
-|   |   |-- config/
-|   |   |   `-- dual_moveabsj_program.json
+|   |   |-- behavior_trees/
+|   |   |   `-- examples/
 |   |   |-- resource/
 |   |   |   `-- rokae_motion
 |   |   `-- rokae_motion/
 |   |       |-- __init__.py
-|   |       |-- ros_dual_moveabsj_client.py
-|   |       `-- run_moveabsj_program.py
+|   |       |-- moveabsj_action_client.py
+|   |       |-- bt_executor.py
+|   |       |-- executor_services.py
+|   |       |-- vision_motion.py
+|   |       `-- vision_target_server.py
 |   |
 |   `-- rokae_bringup/      # Launch 和现场参数
 |       |-- CMakeLists.txt
@@ -64,6 +70,11 @@ rokae_ws/
 - `ros_moveabsj_action_server` 接收
   `/left_arm|right_arm/move_absj` Action，检查目标和限位，然后调用
   `MoveAbsJCommand`、`moveAppend()` 和 `moveStart()`。
+- `ros_movel_service` 提供左右臂绝对与相对 MoveL 服务。
+- `ros_hand_service` 提供左右灵巧手末端 CAN 控制服务。
+- `ros_robot_initializer_service` 提供 `/initialize_robots`，严格按
+  `op.cpp` 的顺序切换非实时指令模式、自动模式并给双臂上电。启动节点本身
+  不会上电，只有收到服务请求才执行初始化。
 
 上层程序不应绕过这个包同时直接控制同一机械臂。
 
@@ -73,12 +84,26 @@ rokae_ws/
 ROS 2 Action 调用 `rokae_driver`：
 
 ```text
-dual_arm_program
+bt_runner / bt_control
         |
         | FollowJointTrajectory Action
         v
 ros_moveabsj_action_server
 ```
+
+视觉部分订阅现有 YOLO JSON 话题，并在内存中缓存命名点与标量值：
+
+```text
+/yolo_vision/* JSON
+  -> vision_target_server
+  -> /bt_target_server/trigger_detect|get_target|set_offset
+  -> move_l_vision motion_mode 1..6
+  -> /left_arm|right_arm/move_l_target
+```
+
+`move_l_target` 在 C++ 驱动中复制控制器当前完整笛卡尔构型，再覆盖视觉计算
+出的绝对位置和指定 RPY 轴，因此不需要为视觉目标伪造 elbow。全身 IK、腰部
+运动和腰部坐标旋转不在当前 Rokae 范围内。
 
 ### rokae_bringup
 
@@ -155,8 +180,12 @@ colcon build
 ```text
 install/rokae_driver/lib/rokae_driver/ros_pos_publisher
 install/rokae_driver/lib/rokae_driver/ros_moveabsj_action_server
-install/rokae_motion/lib/rokae_motion/moveabsj_client
-install/rokae_motion/lib/rokae_motion/dual_arm_program
+install/rokae_driver/lib/rokae_driver/ros_movel_service
+install/rokae_driver/lib/rokae_driver/ros_hand_service
+install/rokae_driver/lib/rokae_driver/ros_robot_initializer_service
+install/rokae_motion/lib/rokae_motion/bt_runner
+install/rokae_motion/lib/rokae_motion/bt_control
+install/rokae_motion/lib/rokae_motion/vision_target_server
 install/rokae_bringup/share/rokae_bringup/launch/
 ```
 
@@ -186,6 +215,18 @@ rokae_motion Python程序
   -> 关节驱动和电机
 ```
 
+`bt_control` 初始化链路：
+
+```text
+bt_control
+  -> /initialize_robots (std_srvs/Trigger)
+  -> ros_robot_initializer_service
+  -> NrtCommand -> automatic -> power on -> verify
+  -> 初始化成功后才开始执行行为树动作
+```
+
+`bt_control --dry-run` 和通用的 `bt_runner` 不调用该初始化服务。
+
 运行时不会读取 `.cpp`，而是执行 `install/` 中的程序；动态加载器再装载
 `libxCoreSDK.so`。
 
@@ -202,5 +243,6 @@ source install/setup.bash
 ros2 launch rokae_bringup dual_arm.launch.py
 ```
 
-该 Launch 会连接两台控制器，但不会给机器人上电，也不会发送动作目标。
+该 Launch 会连接两台控制器，但启动本身不会给机器人上电，也不会发送动作
+目标。真实运行 `bt_control` 时，它会在首个动作前请求初始化并给双臂上电。
 首次发送目标必须使用单臂、小关节变化量、低速、空旷环境，并保持急停可触及。

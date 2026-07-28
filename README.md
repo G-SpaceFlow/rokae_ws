@@ -44,8 +44,10 @@ colcon build --symlink-install --cmake-args \
 
 ## Start
 
-The launch file starts the state publisher, MoveAbsJ action server and MoveL
-service. It does not send a motion command and does not power on either robot.
+The launch file starts the state publisher, MoveAbsJ action server, MoveL
+service, Linker Hand end-CAN service, robot-initialization service and the
+vision trigger/target cache. Starting the launch file alone does not send a
+motion or hand command, trigger vision or power on either robot.
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -58,15 +60,39 @@ Optional launch switches:
 ```bash
 # State topics only
 ros2 launch rokae_bringup dual_arm.launch.py \
-  start_move_server:=false
+  start_move_server:=false start_movel_service:=false \
+  start_hand_service:=false start_initializer_service:=false \
+  start_vision_target_server:=false
 
 # Action server only
 ros2 launch rokae_bringup dual_arm.launch.py \
-  start_state_publisher:=false start_movel_service:=false
+  start_state_publisher:=false start_movel_service:=false \
+  start_hand_service:=false start_initializer_service:=false \
+  start_vision_target_server:=false
 
 # MoveL services only
 ros2 launch rokae_bringup dual_arm.launch.py \
-  start_state_publisher:=false start_move_server:=false
+  start_state_publisher:=false start_move_server:=false \
+  start_hand_service:=false start_initializer_service:=false \
+  start_vision_target_server:=false
+
+# Linker Hand services only
+ros2 launch rokae_bringup dual_arm.launch.py \
+  start_state_publisher:=false start_move_server:=false \
+  start_movel_service:=false start_initializer_service:=false \
+  start_vision_target_server:=false
+
+# Robot initialization service only
+ros2 launch rokae_bringup dual_arm.launch.py \
+  start_state_publisher:=false start_move_server:=false \
+  start_movel_service:=false start_hand_service:=false \
+  start_vision_target_server:=false
+
+# Vision trigger and target cache only
+ros2 launch rokae_bringup dual_arm.launch.py \
+  start_state_publisher:=false start_move_server:=false \
+  start_movel_service:=false start_hand_service:=false \
+  start_initializer_service:=false
 ```
 
 The action names are:
@@ -83,6 +109,51 @@ The linear-motion services are:
 /right_arm/move_l
 /left_arm/move_l_relative
 /right_arm/move_l_relative
+/left_arm/move_l_target
+/right_arm/move_l_target
+/left_arm/get_cartesian_state
+/right_arm/get_cartesian_state
+```
+
+`move_l_target` is used by visual motion modes. It replaces the absolute TCP
+position and only the requested absolute RPY axes while preserving the
+controller's current complete seven-axis Cartesian configuration. This avoids
+inventing an `elbow` value for a vision target.
+
+The Linker Hand services are:
+
+```text
+/left_arm/control_hand
+/right_arm/control_hand
+```
+
+The `op.cpp`-style initialization service is:
+
+```text
+/initialize_robots
+```
+
+One request initializes both arms in order: connect, select
+`NrtCommand`, select automatic mode, power on, then verify that the final
+power state is `on`. It does not send a motion command. It can be called
+independently with:
+
+```bash
+ros2 service call /initialize_robots std_srvs/srv/Trigger "{}"
+```
+
+The initialization node uses the dedicated local addresses
+`192.168.0.22` and `192.168.2.22` from the
+`rokae_robot_initializer` section of `dual_arm.yaml`, matching `op.cpp`.
+
+They expose the `control_hand.cpp` commands `open`, `half`, `close`,
+`position`, `motors`/`joints`, `speed` and `pressure`. Position and speed
+values are integer Linker Hand protocol bytes in `[0, 255]`. For example:
+
+```bash
+ros2 service call /left_arm/control_hand \
+  rokae_interfaces/srv/ControlHand \
+  "{command: motors, values: [255, 160, 69, 69, 69, 69]}"
 ```
 
 The request pose is an absolute TCP pose relative to the controller's external
@@ -120,8 +191,8 @@ the controller's safety configuration.
 
 ```text
 bt_runner
-moveabsj_client
-dual_arm_program
+bt_control
+vision_target_server
 ```
 
 ### Behavior-tree runner
@@ -132,8 +203,8 @@ The behavior-tree runner uses the following YAML hierarchy:
 task -> location -> behavior -> action
 ```
 
-The supported action types are `move_absj`, `move_l`, `move_l_relative` and
-`wait`.
+The supported action types are `move_absj`, `move_l`, `move_l_relative`,
+`vision`, `move_l_vision`, `hand` and `wait`.
 The Python files have deliberately separate responsibilities:
 
 ```text
@@ -141,8 +212,10 @@ run_bt.py             command-line arguments and program entry point
 control.py            fixed workflow groups, steps and repeat counts
 bt_runner_config.py   dry-run, confirmation and failure policy
 bt_executor.py        YAML parsing, validation, filtering and execution flow
-bt_actions.py         concrete MoveAbsJ, MoveL and Wait behaviors
+bt_actions.py         concrete arm, hand and Wait behaviors
 executor_services.py  low-level ROS 2 action and service calls
+vision_motion.py      pure motion_mode 1-6 target calculations
+vision_target_server.py  detector trigger and in-memory target cache
 ```
 
 Validate and display the installed safe template without moving:
@@ -186,6 +259,14 @@ option:
 ros2 run rokae_motion bt_control
 ```
 
+Before its first enabled action, `bt_control` automatically calls
+`/initialize_robots` to initialize and power on both arms. If either arm
+cannot be initialized, the workflow stops without sending an action. The
+bringup launch must therefore be running with
+`start_initializer_service:=true` (the default). This automatic step applies
+only to `bt_control`; the general-purpose `bt_runner` does not power on the
+robots automatically.
+
 The source file can also be run directly after sourcing ROS and the workspace:
 
 ```bash
@@ -198,12 +279,15 @@ Use `--dry-run` when only a preview is needed:
 ros2 run rokae_motion bt_control --dry-run
 ```
 
+`--dry-run` returns before creating the ROS executor, so it neither calls the
+initialization service nor sends a robot command.
+
 Each workflow group supports `name`, `repeat` and ordered `steps`. A step must
 contain `task_id` and may narrow the selection with `location_id`,
-`behavior_id` and `action_id`. Actual workflow execution uses the same
-`execution_locked` and interactive `EXECUTE` safeguards as `bt_runner`; the
-complete expanded workflow is confirmed once. `bt_runner` remains dry-run by
-default and still requires its `--execute` option.
+`behavior_id` and `action_id`. Actual workflow execution still respects the
+YAML `execution_locked` safeguard, but `bt_control` does not require the
+interactive `EXECUTE` input. `bt_runner` remains dry-run by default and still
+requires its `--execute` option.
 
 An action with `enabled: false` is displayed but skipped. This permits the
 checked-in template to retain null target placeholders safely. An action with
@@ -238,29 +322,112 @@ reference humanoid project, Rokae has no waist frame, so
 Euler angles in radians, not increments added to the current orientation. If
 only `left` or `right` is present, only that arm receives a service request.
 
-The installed template is
-`rokae_motion/behavior_trees/examples/展会动作.yaml`. Its motion actions
-are disabled and the entire file is execution-locked. Version-controlled
-programs belong under `behavior_trees/examples`, `behavior_trees/debug` or
-`behavior_trees/production`. Temporary on-site programs can live under
-`/home/niic/rokae_ws/programs` and be passed to `bt_runner` by absolute path.
+### Vision target cache and motion modes
 
-### Legacy MoveAbsJ program
+The ROS 2 port keeps the reference project's topic and service names:
 
-Validate a JSON file without moving:
+```text
+subscribed JSON:
+  /yolo_vision/front_points_base_json
+  /yolo_vision/wall_angle
+  /yolo_vision/mode5_points_json
 
-```bash
-ros2 run rokae_motion moveabsj_client \
-  /path/to/program.json
+published triggers:
+  /yolo_vision/control
+  /yolo_vision/target_labels
+
+services:
+  /bt_target_server/trigger_detect
+  /bt_target_server/get_target
+  /bt_target_server/set_offset
 ```
 
-Run the one-command program after editing
-`src/rokae_motion/config/dual_moveabsj_program.json`:
+This component stores parsed detector JSON, named points and scalar offsets in
+memory. It does not save RGB/depth images and its cache is cleared when the
+node restarts. The detector itself must be started separately and publish one
+of the JSON topics above.
+
+Trigger and cache a pair of points manually:
 
 ```bash
-ros2 run rokae_motion dual_arm_program
+ros2 service call /bt_target_server/trigger_detect \
+  rokae_interfaces/srv/GetVisionTarget \
+  "{key: sample, trigger_value: 2, labels: [tray], motion_mode: 1, \
+point_names: [left, right]}"
 ```
 
-The checked-in JSON file is locked with `replace_before_use: true` and null
-joint targets, so it cannot send a motion goal until measured values replace
-all null entries.
+Read the same cached points without triggering the detector:
+
+```bash
+ros2 service call /bt_target_server/get_target \
+  rokae_interfaces/srv/GetVisionTarget \
+  "{key: sample, motion_mode: 1, point_names: [left, right]}"
+```
+
+Use `type: vision` to trigger and cache data, followed by
+`type: move_l_vision` to consume it. The six imported modes are:
+
+1. Two named points become independent absolute left/right targets.
+2. One point becomes the desired dual-arm midpoint while preserving the
+   current arm formation.
+3. One point plus per-arm offsets; only written arms move.
+4. One target point minus one current point is applied to both arms.
+5. Independent target-current point differences are applied per arm.
+6. A cached scalar such as `y_offset` corrects a selected axis and hand set.
+
+Modes 4, 5 and 6 support a skip threshold. Modes 2 through 6 preserve current
+orientation unless an absolute `rx`, `ry` or `rz` is written. Mode 1 uses the
+absolute quaternion orientations in the active entry from
+`config/vision_offsets.yaml`.
+
+The full locked template for all six modes is
+`behavior_trees/examples/全部动作示例.yaml`. This Rokae port intentionally
+does not include the reference project's whole-body IK, waist motion or waist
+coordinate rotation. `rotate_with_waist: true` is rejected during YAML
+validation.
+
+A hand action can address one or both hands. The explicit `targets` form is
+recommended because it makes the side and six-motor order clear:
+
+```yaml
+- id: set_hand_positions
+  name: set_dual_hand_positions
+  type: hand
+  command: motors
+  targets:
+    # M1-M6: thumb bend, thumb side swing, index, middle, ring, little finger
+    left: [255, 160, 69, 69, 69, 69]
+    right: [255, 160, 69, 69, 69, 69]
+```
+
+Commands `open`, `half`, `close` and `pressure` use a `hands` list:
+
+```yaml
+- id: open_left
+  type: hand
+  command: open
+  hands: [left]
+```
+
+For compatibility with `zj_robot_bt_action`, `q` may contain exactly 12
+values: left M1-M6 followed by right M1-M6. Unlike that humanoid project's
+joint values, Rokae Linker Hand values are integer CAN protocol bytes in
+`[0, 255]`, not radians:
+
+```yaml
+- id: close_both
+  type: hand
+  q: [69, 69, 69, 69, 69, 69,
+      69, 69, 69, 69, 69, 69]
+```
+
+The installed templates include
+`rokae_motion/behavior_trees/examples/展会动作.yaml` and
+`rokae_motion/behavior_trees/examples/全部动作示例.yaml`. The complete
+example is execution-locked and covers every supported action type, including
+hand speed, presets, independent motor positions, the compatible 12-value
+`q` layout and pressure reads.
+Version-controlled programs belong under `behavior_trees/examples`,
+`behavior_trees/debug` or `behavior_trees/production`. Temporary on-site
+programs can live under `/home/niic/rokae_ws/programs` and be passed to
+`bt_runner` by absolute path.

@@ -60,6 +60,39 @@ class MoveLRelativeBehavior(BehaviorAction):
         executor.move_l_relative(action.parameters)
 
 
+class VisionBehavior(BehaviorAction):
+    """Trigger the detector and cache its selected vision points."""
+
+    action_type = "vision"
+
+    def execute(
+        self, executor: "RokaeActionExecutor", action: "ActionSpec"
+    ) -> None:
+        executor.trigger_vision(action.parameters)
+
+
+class MoveLVisionBehavior(BehaviorAction):
+    """Resolve one cached vision motion mode and execute MoveL."""
+
+    action_type = "move_l_vision"
+
+    def execute(
+        self, executor: "RokaeActionExecutor", action: "ActionSpec"
+    ) -> None:
+        executor.move_l_vision(action.parameters)
+
+
+class HandBehavior(BehaviorAction):
+    """Control one or both Linker Hands through the arm end CAN buses."""
+
+    action_type = "hand"
+
+    def execute(
+        self, executor: "RokaeActionExecutor", action: "ActionSpec"
+    ) -> None:
+        executor.control_hand(action.parameters)
+
+
 class WaitBehavior(BehaviorAction):
     """Pause the sequence while keeping ROS callbacks responsive."""
 
@@ -77,6 +110,9 @@ BEHAVIORS: Dict[str, BehaviorAction] = {
         MoveAbsJBehavior(),
         MoveLBehavior(),
         MoveLRelativeBehavior(),
+        VisionBehavior(),
+        MoveLVisionBehavior(),
+        HandBehavior(),
         WaitBehavior(),
     )
 }
