@@ -415,10 +415,16 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
                  " is already outside the controller soft limits";
         return false;
       }
-      if (std::abs(target[i] - startJoints[i]) >
-          options.maxGoalDeltaRad) {
+      const double requestedDelta =
+          std::abs(target[i] - startJoints[i]);
+      if (requestedDelta > options.maxGoalDeltaRad) {
         reason = "J" + std::to_string(i + 1) +
-                 " requested change exceeds max_goal_delta_rad";
+                 " requested change exceeds max_goal_delta_rad: current=" +
+                 std::to_string(startJoints[i]) +
+                 " rad, target=" + std::to_string(target[i]) +
+                 " rad, delta=" + std::to_string(requestedDelta) +
+                 " rad, limit=" +
+                 std::to_string(options.maxGoalDeltaRad) + " rad";
         return false;
       }
     }
