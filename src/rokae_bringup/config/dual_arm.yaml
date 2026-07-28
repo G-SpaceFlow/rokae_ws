@@ -54,6 +54,46 @@ rokae_movel_service:
       goal_position_tolerance_m: 0.002
       goal_rotation_tolerance_rad: 0.02
 
+rokae_hand_service:
+  ros__parameters:
+    left_hand:
+      robot_ip: "192.168.0.160"
+      local_ip: "192.168.0.10"
+      can_id: 40  # 0x28
+      receive_timeout_ms: 200
+      receive_attempts: 3
+      reply_delay_ms: 1000
+
+    right_hand:
+      robot_ip: "192.168.2.160"
+      local_ip: "192.168.2.10"
+      can_id: 39  # 0x27
+      receive_timeout_ms: 200
+      receive_attempts: 3
+      reply_delay_ms: 1000
+
+rokae_robot_initializer:
+  ros__parameters:
+    # Keep the dedicated op.cpp initialization sessions separate from the
+    # long-lived motion/state sessions, which use the .10 local addresses.
+    left_arm:
+      robot_ip: "192.168.0.160"
+      local_ip: "192.168.0.22"
+
+    right_arm:
+      robot_ip: "192.168.2.160"
+      local_ip: "192.168.2.22"
+
+bt_target_server:
+  ros__parameters:
+    vision_points_topic: "/yolo_vision/front_points_base_json"
+    wall_angle_topic: "/yolo_vision/wall_angle"
+    mode5_points_topic: "/yolo_vision/mode5_points_json"
+    vision_control_topic: "/yolo_vision/control"
+    target_labels_topic: "/yolo_vision/target_labels"
+    detection_timeout_s: 5.0
+    post_detection_delay_s: 1.0
+
 /left_arm/rokae_state_publisher:
   ros__parameters:
     arm_name: "left"

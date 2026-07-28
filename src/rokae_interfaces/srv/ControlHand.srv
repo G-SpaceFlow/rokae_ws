@@ -1,0 +1,18 @@
+# Linker Hand command sent through one Rokae arm's end CAN bus.
+#
+# Supported commands:
+#   open, half, close: values are ignored
+#   position: values[0] is applied to all six motors
+#   motors, joints: values are M1-M6 positions
+#   speed: values[0] is applied to all six motors
+#   pressure: values are ignored and the raw reply is returned
+#
+# Every position and speed value is a Linker Hand protocol byte in [0, 255].
+string command
+uint8[6] values
+---
+bool success
+string message
+# Raw matching CAN reply, useful for pressure and protocol diagnostics.
+uint32 frame_id
+uint8[] data

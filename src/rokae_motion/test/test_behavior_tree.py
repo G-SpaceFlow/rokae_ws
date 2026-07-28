@@ -179,3 +179,138 @@ def test_relative_move_l_accepts_sparse_translation_and_orientation(
     assert action.parameters["orientations"] == {
         "left": [None, 0.2, None],
     }
+
+
+def test_hand_q_matches_reference_dual_hand_order(tmp_path: Path) -> None:
+    hand_tree = TEMPLATE.replace(
+        "              - id: wait_1\n",
+        """\
+              - id: hand_1
+                type: hand
+                q: [255, 254, 253, 252, 251, 250,
+                    69, 70, 71, 72, 73, 74]
+              - id: wait_1
+""",
+    )
+
+    tree = load_behavior_tree(write_tree(tmp_path, hand_tree))
+    action = select_actions(
+        tree, TreeSelection(action_id="hand_1")
+    )[0]
+
+    assert action.parameters["requests"] == {
+        "left": {
+            "command": "motors",
+            "values": [255, 254, 253, 252, 251, 250],
+        },
+        "right": {
+            "command": "motors",
+            "values": [69, 70, 71, 72, 73, 74],
+        },
+    }
+
+
+def test_hand_allows_single_side_and_presets(tmp_path: Path) -> None:
+    hand_tree = TEMPLATE.replace(
+        "              - id: wait_1\n",
+        """\
+              - id: hand_left
+                type: hand
+                command: motors
+                targets:
+                  left: [255, 160, 69, 70, 71, 72]
+              - id: hand_open_right
+                type: hand
+                command: open
+                hands: [right]
+              - id: wait_1
+""",
+    )
+
+    tree = load_behavior_tree(write_tree(tmp_path, hand_tree))
+    left, right = select_actions(
+        tree, TreeSelection(behavior_id="behavior_1")
+    )[1:3]
+
+    assert left.parameters["requests"] == {
+        "left": {
+            "command": "motors",
+            "values": [255, 160, 69, 70, 71, 72],
+        }
+    }
+    assert right.parameters["requests"] == {
+        "right": {"command": "open", "values": [0] * 6}
+    }
+
+
+@pytest.mark.parametrize(
+    "hand_yaml, message",
+    [
+        (
+            """\
+              - id: bad_hand
+                type: hand
+                q: [0, 1, 2]
+""",
+            "exactly 12",
+        ),
+        (
+            """\
+              - id: bad_hand
+                type: hand
+                command: motors
+                targets:
+                  left: [0, 1, 2, 3, 4, 256]
+""",
+            r"integer in \[0, 255\]",
+        ),
+    ],
+)
+def test_hand_rejects_invalid_protocol_values(
+    tmp_path: Path, hand_yaml: str, message: str
+) -> None:
+    hand_tree = TEMPLATE.replace(
+        "              - id: wait_1\n", hand_yaml + "              - id: wait_1\n"
+    )
+
+    with pytest.raises(BehaviorTreeError, match=message):
+        load_behavior_tree(write_tree(tmp_path, hand_tree))
+
+
+def test_complete_example_validates_all_visual_motion_modes() -> None:
+    example = (
+        Path(__file__).resolve().parents[1]
+        / "behavior_trees"
+        / "examples"
+        / "全部动作示例.yaml"
+    )
+
+    tree = load_behavior_tree(example)
+    modes = {
+        action.parameters["motion_mode"]
+        for action in tree.actions
+        if action.action_type == "move_l_vision"
+    }
+
+    assert modes == {1, 2, 3, 4, 5, 6}
+
+
+def test_visual_motion_rejects_waist_rotation(tmp_path: Path) -> None:
+    visual_motion = TEMPLATE.replace(
+        "              - id: wait_1\n",
+        """\
+              - id: visual_move
+                type: move_l_vision
+                motion_mode: 3
+                base_key: target
+                points: [center]
+                relative_offset:
+                  rotate_with_waist: true
+                  left: {dx: 0.01}
+                speed_mm_s: 20.0
+              - id: wait_1
+""",
+    )
+
+    with pytest.raises(BehaviorTreeError, match="waist"):
+        load_behavior_tree(write_tree(tmp_path, visual_motion))

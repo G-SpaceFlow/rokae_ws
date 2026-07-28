@@ -14,6 +14,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rokae_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(Threads REQUIRED)
 
@@ -183,6 +184,26 @@ ament_target_dependencies(ros_movel_service
 )
 
 add_executable(
+  ros_hand_service
+  src/ros_hand_service.cpp
+)
+configure_rokae_target(ros_hand_service)
+ament_target_dependencies(ros_hand_service
+  rclcpp
+  rokae_interfaces
+)
+
+add_executable(
+  ros_robot_initializer_service
+  src/ros_robot_initializer_service.cpp
+)
+configure_rokae_target(ros_robot_initializer_service)
+ament_target_dependencies(ros_robot_initializer_service
+  rclcpp
+  std_srvs
+)
+
+add_executable(
   ros_pos_publisher
   src/ros_pos_publisher.cpp
 )
@@ -196,9 +217,11 @@ ament_target_dependencies(ros_pos_publisher
 
 # ROS 2 searches <install-prefix>/lib/<package-name> for node executables.
 install(TARGETS
+  ros_hand_service
   ros_moveabsj_action_server
   ros_movel_service
   ros_pos_publisher
+  ros_robot_initializer_service
   DESTINATION lib/${PROJECT_NAME}
 )
 

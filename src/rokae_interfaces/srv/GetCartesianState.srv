@@ -1,0 +1,6 @@
+# Read the current TCP pose in the robot external-reference frame.
+---
+bool success
+string message
+# [x, y, z, rx, ry, rz], metres and XYZ Euler radians.
+float64[6] pose

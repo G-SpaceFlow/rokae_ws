@@ -1,0 +1,276 @@
+# Complete Rokae behavior-action example. Every action has valid sample
+# fields so dry-run validates the full schema. Real execution remains blocked
+# until this file is reviewed and execution_locked is set to false.
+version: 1
+execution_locked: true
+
+tasks:
+  - id: task_example_001
+    name: all_action_types
+    locations:
+      - id: location_example_001
+        name: robot_cell
+        behaviors:
+          - id: behavior_arm_001
+            name: arm_action_examples
+            actions:
+              # Absolute seven-joint target, in radians.
+              - id: example_move_absj
+                name: dual_arm_joint_target
+                type: move_absj
+                targets:
+                  left: [1.167045, 1.300690, -1.524894, 0.588013,
+                         -0.254441, 0.509970, -0.364911]
+                  right: [-1.652252, 1.369718, 1.524893, 0.984033,
+                          0.261897, 0.196173, -0.145317]
+
+              - id: example_wait
+                name: settle
+                type: wait
+                duration_s: 1.0
+
+              # Absolute TCP target: [x, y, z, rx, ry, rz].
+              # Translation is metres; XYZ Euler angles and elbow are radians.
+              - id: example_move_l
+                name: left_absolute_linear_move
+                type: move_l
+                targets:
+                  left:
+                    pose: [0.5071, 0.3601, -0.3326,
+                           -0.598293, -1.474371, -2.701478]
+                    elbow: -1.524893
+                speed_mm_s: 50.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0
+
+              # Sparse translation is relative to the current TCP.
+              # Written rx/ry/rz values are absolute; omitted axes are kept.
+              - id: example_move_l_relative
+                name: dual_arm_relative_move
+                type: move_l_relative
+                relative_offset:
+                  rotate_with_waist: false
+                  left:
+                    dy: -0.02
+                  right:
+                    dy: 0.02
+                    rz: -0.57
+                speed_mm_s: 30.0
+                zone_mm: 0.0
+                response_timeout_s: 70.0
+
+          - id: behavior_vision_001
+            name: vision_and_motion_mode_examples
+            actions:
+              # mode 1: two visual points become absolute left/right targets.
+              - id: example_vision_mode_1
+                name: cache_left_and_right_points
+                type: vision
+                key: vision_mode_1
+                trigger_value: 2
+                labels: [tray]
+                motion_mode: 1
+                points: [left, right]
+                offset_id: default
+
+              - id: example_move_l_vision_mode_1
+                name: move_to_left_and_right_visual_points
+                type: move_l_vision
+                motion_mode: 1
+                base_key: vision_mode_1
+                points: [left, right]
+                speed_mm_s: 30.0
+                zone_mm: 0.0
+
+              # mode 2: preserve the current dual-arm formation and move its
+              # midpoint to one visual point plus a midpoint offset.
+              - id: example_vision_mode_2
+                name: cache_midpoint_target
+                type: vision
+                key: vision_mode_2
+                trigger_value: 1
+                labels: [tray]
+                motion_mode: 2
+                points: [center]
+
+              - id: example_move_l_vision_mode_2
+                name: move_dual_arm_midpoint
+                type: move_l_vision
+                motion_mode: 2
+                base_key: vision_mode_2
+                points: [center]
+                relative_offset:
+                  rotate_with_waist: false
+                  midpoint: {dx: 0.0, dy: 0.0, dz: 0.05}
+                speed_mm_s: 30.0
+                zone_mm: 0.0
+
+              # mode 3: one visual point plus independent arm offsets.
+              - id: example_vision_mode_3
+                name: cache_single_arm_reference
+                type: vision
+                key: vision_mode_3
+                trigger_value: 3
+                labels: []
+                motion_mode: 3
+                points: [base]
+
+              - id: example_move_l_vision_mode_3
+                name: move_arms_from_one_visual_point
+                type: move_l_vision
+                motion_mode: 3
+                base_key: vision_mode_3
+                points: [base]
+                relative_offset:
+                  rotate_with_waist: false
+                  left: {dx: -0.05, dy: 0.08, dz: 0.02}
+                  right:
+                    dx: -0.05
+                    dy: -0.08
+                    dz: 0.02
+                    rz: -0.5
+                speed_mm_s: 30.0
+                zone_mm: 0.0
+
+              # mode 4: apply target_point - current_point to both arms.
+              - id: example_vision_mode_4
+                name: cache_point_delta_detection
+                type: vision
+                key: vision_mode_4
+                trigger_value: 2
+                labels: [tray]
+                motion_mode: 4
+                points: [target]
+
+              - id: example_move_l_vision_mode_4
+                name: correct_both_arms_by_point_delta
+                type: move_l_vision
+                motion_mode: 4
+                point_delta:
+                  target:
+                    base_key: vision_mode_4
+                    points: [target]
+                  current:
+                    base_key: vision_mode_4
+                    points: [current]
+                relative_offset:
+                  rotate_with_waist: false
+                  # Written axes override the computed delta. Omitted axes
+                  # continue to use target-current.
+                  left: {dz: 0.0}
+                  right: {dz: 0.0}
+                skip_if_distance_less_than:
+                  axes: [x, y]
+                  threshold: 0.005
+                speed_mm_s: 20.0
+                zone_mm: 0.0
+
+              # mode 5: independent target-current point deltas per arm.
+              - id: example_vision_mode_5
+                name: cache_independent_arm_points
+                type: vision
+                key: vision_mode_5
+                trigger_value: 2
+                labels: [tray]
+                motion_mode: 5
+                points: [left_current]
+
+              - id: example_move_l_vision_mode_5
+                name: correct_each_arm_by_its_own_point_delta
+                type: move_l_vision
+                motion_mode: 5
+                point_delta:
+                  left_current:
+                    base_key: vision_mode_5
+                    points: [left_current]
+                  right_current:
+                    base_key: vision_mode_5
+                    points: [right_current]
+                  left_target:
+                    base_key: vision_mode_5
+                    points: [left_target]
+                  right_target:
+                    base_key: vision_mode_5
+                    points: [right_target]
+                relative_offset:
+                  rotate_with_waist: false
+                  left: {dz: 0.0}
+                  right: {dz: 0.0}
+                skip_if_distance_less_than:
+                  axes: [x, y]
+                  threshold: 0.005
+                speed_mm_s: 20.0
+                zone_mm: 0.0
+
+              # mode 6: one cached scalar adjusts a selected translation axis.
+              - id: example_vision_mode_6
+                name: cache_visual_scalar
+                type: vision
+                key: vision_mode_6
+                trigger_value: 5
+                labels: [tray]
+                motion_mode: 6
+                points: [y_offset]
+
+              - id: example_move_l_vision_mode_6
+                name: correct_y_from_visual_scalar
+                type: move_l_vision
+                motion_mode: 6
+                relative_offset:
+                  rotate_with_waist: false
+                  left: {dx: 0.0, dy: 0.0, dz: 0.0}
+                  right: {dx: 0.0, dy: 0.0, dz: 0.0}
+                mode_source:
+                  index: 1
+                  base_key: vision_mode_6
+                  points: [y_offset]
+                  initial_point: 0.004
+                  hands: [left, right]
+                  skip_if_distance_less_than:
+                    threshold: 0.005
+                speed_mm_s: 20.0
+                zone_mm: 0.0
+
+          - id: behavior_hand_001
+            name: hand_action_examples
+            actions:
+              # Linker Hand positions and speeds are integer CAN protocol
+              # bytes in [0, 255], not joint angles in radians.
+              - id: example_hand_speed
+                name: set_both_hand_speeds
+                type: hand
+                command: speed
+                targets:
+                  left: 96
+                  right: 96
+
+              - id: example_hand_open
+                name: open_both_hands
+                type: hand
+                command: open
+                hands: [left, right]
+
+              - id: example_hand_motors
+                name: set_dual_hand_motor_positions
+                type: hand
+                command: motors
+                targets:
+                  # M1-M6: thumb bend, thumb side swing, index, middle,
+                  # ring and little-finger bend.
+                  left: [160, 160, 160, 160, 160, 160]
+                  right: [160, 160, 160, 160, 160, 160]
+
+              # zj_robot_bt_action-compatible layout:
+              # left M1-M6 followed by right M1-M6.
+              - id: example_hand_q
+                name: close_both_hands_with_q_layout
+                type: hand
+                q: [69, 69, 69, 69, 69, 69,
+                    69, 69, 69, 69, 69, 69]
+
+              - id: example_hand_pressure
+                name: read_both_hand_pressure_frames
+                type: hand
+                command: pressure
+                hands: [left, right]
+                optional: true

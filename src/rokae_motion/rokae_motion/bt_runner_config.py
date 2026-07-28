@@ -8,6 +8,7 @@ class RunnerConfig:
     """Runtime policy applied by the behavior-tree executor."""
 
     execute: bool = False
+    initialize_before_execute: bool = False
     continue_on_action_fail: bool = False
     require_confirmation: bool = False
     confirmation_phrase: str = "EXECUTE"
@@ -39,7 +40,9 @@ def add_common_runner_args(
     )
 
 
-def build_config_from_args(arguments) -> RunnerConfig:
+def build_config_from_args(
+    arguments, *, initialize_before_execute: bool = False
+) -> RunnerConfig:
     """Build an immutable execution policy from parsed CLI arguments."""
     if hasattr(arguments, "dry_run"):
         execute = not bool(arguments.dry_run)
@@ -47,6 +50,7 @@ def build_config_from_args(arguments) -> RunnerConfig:
         execute = bool(getattr(arguments, "execute", False))
     return RunnerConfig(
         execute=execute,
+        initialize_before_execute=initialize_before_execute,
         continue_on_action_fail=bool(
             getattr(arguments, "continue_on_action_fail", False)
         ),

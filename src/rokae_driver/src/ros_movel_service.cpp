@@ -7,6 +7,10 @@
  *   /right_arm/move_l
  *   /left_arm/move_l_relative
  *   /right_arm/move_l_relative
+ *   /left_arm/move_l_target
+ *   /right_arm/move_l_target
+ *   /left_arm/get_cartesian_state
+ *   /right_arm/get_cartesian_state
  *
  * The request pose is [x, y, z, rx, ry, rz] in the robot's configured
  * external-reference frame. Translation is in metres; XYZ Euler angles and
@@ -27,14 +31,18 @@
 #include <thread>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rokae_interfaces/srv/get_cartesian_state.hpp"
 #include "rokae_interfaces/srv/move_l.hpp"
 #include "rokae_interfaces/srv/move_l_relative.hpp"
+#include "rokae_interfaces/srv/move_l_target.hpp"
 #include "rokae/robot.h"
 
 namespace {
 
+using GetCartesianState = rokae_interfaces::srv::GetCartesianState;
 using MoveL = rokae_interfaces::srv::MoveL;
 using MoveLRelative = rokae_interfaces::srv::MoveLRelative;
+using MoveLTarget = rokae_interfaces::srv::MoveLTarget;
 constexpr auto kPollPeriod = std::chrono::milliseconds(100);
 constexpr auto kMotionStartGracePeriod = std::chrono::milliseconds(100);
 
@@ -57,6 +65,8 @@ struct ArmContext {
   rclcpp::CallbackGroup::SharedPtr callbackGroup;
   rclcpp::Service<MoveL>::SharedPtr service;
   rclcpp::Service<MoveLRelative>::SharedPtr relativeService;
+  rclcpp::Service<MoveLTarget>::SharedPtr targetService;
+  rclcpp::Service<GetCartesianState>::SharedPtr stateService;
 };
 
 }  // namespace
@@ -132,7 +142,121 @@ class RokaeMoveLService : public rclcpp::Node {
         arm->callbackGroup);
     RCLCPP_INFO(
         get_logger(), "%s is ready", relativeServiceName.c_str());
+
+    const std::string targetServiceName =
+        "/" + side + "_arm/move_l_target";
+    arm->targetService = create_service<MoveLTarget>(
+        targetServiceName,
+        [this, armPtr](
+            const std::shared_ptr<MoveLTarget::Request> request,
+            std::shared_ptr<MoveLTarget::Response> response) {
+          executePoseTarget(*armPtr, *request, *response);
+        },
+        rmw_qos_profile_services_default,
+        arm->callbackGroup);
+    RCLCPP_INFO(
+        get_logger(), "%s is ready", targetServiceName.c_str());
+
+    const std::string stateServiceName =
+        "/" + side + "_arm/get_cartesian_state";
+    arm->stateService = create_service<GetCartesianState>(
+        stateServiceName,
+        [this, armPtr](
+            const std::shared_ptr<GetCartesianState::Request>,
+            std::shared_ptr<GetCartesianState::Response> response) {
+          readCartesianState(*armPtr, *response);
+        },
+        rmw_qos_profile_services_default,
+        arm->callbackGroup);
+    RCLCPP_INFO(
+        get_logger(), "%s is ready", stateServiceName.c_str());
     return arm;
+  }
+
+  void readCartesianState(
+      ArmContext &arm, GetCartesianState::Response &response) {
+    std::unique_lock<std::mutex> lock(arm.mutex, std::try_to_lock);
+    if (!lock.owns_lock()) {
+      fail(
+          response,
+          arm.side + " arm is already executing a MoveL request");
+      return;
+    }
+
+    std::error_code ec;
+    const auto current =
+        arm.robot->cartPosture(rokae::CoordinateType::endInRef, ec);
+    if (ec) {
+      fail(response, sdkError("cartPosture(endInRef)", ec));
+      return;
+    }
+    for (std::size_t index = 0; index < 3; ++index) {
+      response.pose[index] = current.trans[index];
+      response.pose[index + 3] = current.rpy[index];
+    }
+    response.success = true;
+    response.message = "current Cartesian state";
+  }
+
+  void executePoseTarget(
+      ArmContext &arm, const MoveLTarget::Request &request,
+      MoveLTarget::Response &response) {
+    std::unique_lock<std::mutex> lock(arm.mutex, std::try_to_lock);
+    if (!lock.owns_lock()) {
+      fail(response, arm.side + " arm is already executing a MoveL request");
+      return;
+    }
+
+    const bool finitePosition = std::all_of(
+        request.position.begin(), request.position.end(),
+        [](double value) { return std::isfinite(value); });
+    const bool finiteOrientation = std::all_of(
+        request.orientation_rpy.begin(), request.orientation_rpy.end(),
+        [](double value) { return std::isfinite(value); });
+    if (!finitePosition || !finiteOrientation) {
+      fail(response, "target position and orientation must be finite");
+      return;
+    }
+
+    std::string reason;
+    if (!validateMotionOptions(
+            arm, request.speed_mm_s, request.zone_mm, reason)) {
+      fail(response, reason);
+      return;
+    }
+
+    try {
+      std::error_code ec;
+      const auto current =
+          arm.robot->cartPosture(rokae::CoordinateType::endInRef, ec);
+      if (ec) {
+        fail(response, sdkError("cartPosture(endInRef)", ec));
+        return;
+      }
+
+      // Preserve the controller-provided elbow, configuration and external
+      // axes. Vision only replaces the absolute TCP position and requested
+      // absolute XYZ Euler orientation axes.
+      rokae::CartesianPosition target = current;
+      for (std::size_t index = 0; index < 3; ++index) {
+        target.trans[index] = request.position[index];
+        if (request.orientation_override[index]) {
+          target.rpy[index] = request.orientation_rpy[index];
+        }
+      }
+
+      if (!validateDelta(arm, current, target, reason)) {
+        fail(response, reason);
+        return;
+      }
+      executeTarget(
+          arm, target, request.speed_mm_s, request.zone_mm, response);
+    } catch (const std::exception &exception) {
+      fail(
+          response,
+          std::string("pose-target MoveL exception: ") +
+              exception.what());
+    }
   }
 
   void executeRelative(

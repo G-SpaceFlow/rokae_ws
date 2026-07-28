@@ -1,0 +1,38 @@
+# Vision calibration offsets in each Rokae controller's configured external
+# reference frame. Quaternion orientations are absolute targets used only by
+# motion_mode 1. Replace example values after calibration.
+offsets:
+  - id: default
+    left_dx: 0.0
+    left_dy: 0.0
+    left_dz: 0.0
+    right_dx: 0.0
+    right_dy: 0.0
+    right_dz: 0.0
+    left_ox: 0.0
+    left_oy: 0.0
+    left_oz: 0.0
+    left_ow: 1.0
+    right_ox: 0.0
+    right_oy: 0.0
+    right_oz: 0.0
+    right_ow: 1.0
+
+  # Structure copied from zj_robot_bt_action/offset_params.yaml. These are
+  # reference-project values and must remain unused until they are calibrated
+  # in the Rokae external-reference frames.
+  - id: reference_tray_1
+    left_dx: -0.077409
+    left_dy: 0.0227
+    left_dz: 0.14857
+    right_dx: -0.08933
+    right_dy: -0.01212
+    right_dz: 0.15526
+    left_ox: 0.0470
+    left_oy: 0.168
+    left_oz: 0.0309
+    left_ow: -0.9846
+    right_ox: 0.0470
+    right_oy: -0.168
+    right_oz: -0.0309
+    right_ow: 0.9846

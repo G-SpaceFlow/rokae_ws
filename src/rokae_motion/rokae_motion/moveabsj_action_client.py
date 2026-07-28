@@ -1,22 +1,6 @@
-#!/usr/bin/env python3
-"""Run a JSON-programmed dual-arm sequence through the MoveAbsJ actions.
+"""Shared ROS 2 MoveAbsJ action client used by behavior-tree execution."""
 
-The C++ action server must already be running. This client requires no build:
-
-  ros2 run rokae_motion moveabsj_client PROGRAM.json
-  ros2 run rokae_motion moveabsj_client PROGRAM.json --execute
-  ros2 run rokae_motion moveabsj_client PROGRAM.json --arm left --execute
-
-Without --execute the file is only validated and printed. Each program step
-sends the left and right goals before waiting for either result, so both arms
-start approximately together. This is not hard real-time synchronization.
-"""
-
-import argparse
-import json
 import math
-from pathlib import Path
-import sys
 import time
 from typing import Dict, List, Optional, Sequence
 
@@ -36,7 +20,7 @@ ACTION_NAMES = {
 
 
 class ProgramError(RuntimeError):
-    """Raised when the JSON program or action result is invalid."""
+    """Raised when a ROS motion request or result is invalid."""
 
 
 def validate_joint_target(side: str, values: object) -> List[float]:
@@ -56,106 +40,9 @@ def validate_joint_target(side: str, values: object) -> List[float]:
     return target
 
 
-def load_program(path: Path, selected_step: Optional[str]) -> List[dict]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ProgramError(f"cannot read {path}: {exc}") from exc
-    except json.JSONDecodeError as exc:
-        raise ProgramError(f"invalid JSON in {path}: {exc}") from exc
-
-    if not isinstance(data, dict):
-        raise ProgramError("program root must be a JSON object")
-    if data.get("replace_before_use", False):
-        raise ProgramError(
-            "template is locked: replace all null targets, then set "
-            '"replace_before_use" to false'
-        )
-
-    raw_steps = data.get("steps")
-    if not isinstance(raw_steps, list) or not raw_steps:
-        raise ProgramError("program must contain at least one step")
-    if len(raw_steps) > 100:
-        raise ProgramError("program must not contain more than 100 steps")
-
-    steps: List[dict] = []
-    names = set()
-    for index, raw_step in enumerate(raw_steps):
-        if not isinstance(raw_step, dict):
-            raise ProgramError(f"step {index + 1} must be a JSON object")
-
-        name = raw_step.get("name", f"step_{index + 1}")
-        if not isinstance(name, str) or not name.strip():
-            raise ProgramError(f"step {index + 1} has an invalid name")
-        if name in names:
-            raise ProgramError(f"duplicate step name: {name}")
-        names.add(name)
-
-        step = {"name": name}
-        for side in ACTION_NAMES:
-            if side in raw_step:
-                step[side] = validate_joint_target(side, raw_step[side])
-        if "left" not in step and "right" not in step:
-            raise ProgramError(f"{name} must contain left and/or right target")
-
-        wait_after_s = raw_step.get("wait_after_s", 0.0)
-        if (
-            isinstance(wait_after_s, bool)
-            or not isinstance(wait_after_s, (int, float))
-            or not math.isfinite(float(wait_after_s))
-            or float(wait_after_s) < 0.0
-            or float(wait_after_s) > 60.0
-        ):
-            raise ProgramError(
-                f"{name}.wait_after_s must be between 0 and 60"
-            )
-        step["wait_after_s"] = float(wait_after_s)
-        steps.append(step)
-
-    if selected_step is not None:
-        steps = [step for step in steps if step["name"] == selected_step]
-        if not steps:
-            raise ProgramError(f"step not found: {selected_step}")
-    return steps
-
-
-def print_program(steps: Sequence[dict]) -> None:
-    print(f"Validated {len(steps)} program step(s):")
-    for index, step in enumerate(steps, start=1):
-        print(f"  {index}. {step['name']}")
-        for side in ACTION_NAMES:
-            if side in step:
-                values = ", ".join(f"{value:.6f}" for value in step[side])
-                print(f"     {side}: [{values}] rad")
-        print(f"     wait_after_s: {step['wait_after_s']:.3f}")
-
-
-def select_arms(steps: Sequence[dict], selection: str) -> List[dict]:
-    if selection == "both":
-        return list(steps)
-
-    selected_steps: List[dict] = []
-    for step in steps:
-        if selection not in step:
-            continue
-        selected_steps.append(
-            {
-                "name": step["name"],
-                selection: step[selection],
-                "wait_after_s": step["wait_after_s"],
-            }
-        )
-
-    if not selected_steps:
-        raise ProgramError(
-            f"the selected program contains no {selection} arm targets"
-        )
-    return selected_steps
-
-
 class DualMoveAbsJClient(Node):
     def __init__(self) -> None:
-        super().__init__("rokae_dual_moveabsj_client")
+        super().__init__("rokae_action_executor")
         self._move_absj_action_clients = {
             side: ActionClient(self, FollowJointTrajectory, action_name)
             for side, action_name in ACTION_NAMES.items()
@@ -325,113 +212,3 @@ class DualMoveAbsJClient(Node):
                 self,
                 timeout_sec=min(0.05, deadline - time.monotonic()),
             )
-
-
-def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Validate or execute a JSON dual-arm MoveAbsJ program"
-        )
-    )
-    parser.add_argument("program", type=Path, help="JSON program file")
-    parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="actually send goals; without this flag only validate",
-    )
-    parser.add_argument(
-        "--step",
-        help="execute or validate only the named step",
-    )
-    parser.add_argument(
-        "--arm",
-        choices=("left", "right", "both"),
-        default="both",
-        help=(
-            "select which arm targets to use from the JSON "
-            "(default: both)"
-        ),
-    )
-    return parser.parse_args()
-
-
-def run_program(
-    program: Path,
-    arm: str = "both",
-    selected_step: Optional[str] = None,
-    execute: bool = False,
-) -> int:
-    """Validate and optionally execute one JSON MoveAbsJ program."""
-    try:
-        if arm not in ACTION_NAMES and arm != "both":
-            raise ProgramError(
-                f"arm must be left, right or both, got {arm!r}"
-            )
-        steps = load_program(program, selected_step)
-        steps = select_arms(steps, arm)
-        print_program(steps)
-    except ProgramError as exc:
-        print(f"Program error: {exc}", file=sys.stderr)
-        return 2
-
-    if not execute:
-        print(
-            "Dry run only: no robot command was sent. "
-            "Add --execute after checking every target."
-        )
-        return 0
-
-    print(
-        "EXECUTION ENABLED. Confirm both targets are based on current joint "
-        "feedback, the workspace is clear, and the E-stop is accessible."
-    )
-    confirmation = input("Type EXECUTE to start the programmed sequence: ")
-    if confirmation != "EXECUTE":
-        print("Cancelled; no action goal was sent.")
-        return 0
-
-    rclpy.init()
-    node: Optional[DualMoveAbsJClient] = None
-    try:
-        node = DualMoveAbsJClient()
-        for index, step in enumerate(steps, start=1):
-            node.get_logger().info(
-                f"starting step {index}/{len(steps)}: {step['name']}"
-            )
-            node.run_step(step)
-            node.wait_between_steps(step["wait_after_s"])
-        node.get_logger().info("dual-arm program completed")
-        return 0
-    except KeyboardInterrupt:
-        if node is not None:
-            node.get_logger().warning(
-                "Ctrl+C received; requesting cancellation for active goals"
-            )
-            node.cancel_active()
-        return 130
-    except ProgramError as exc:
-        if node is not None:
-            node.get_logger().error(str(exc))
-            node.cancel_active()
-        else:
-            print(f"Program error: {exc}", file=sys.stderr)
-        return 1
-    finally:
-        if node is not None:
-            node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
-
-
-def main() -> int:
-    arguments = parse_arguments()
-    return run_program(
-        program=arguments.program,
-        arm=arguments.arm,
-        selected_step=arguments.step,
-        execute=arguments.execute,
-    )
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

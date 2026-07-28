@@ -1,0 +1,11 @@
+# Absolute TCP position while preserving the current complete seven-axis
+# Cartesian configuration, including the controller's elbow/configuration
+# data. Orientation axes can be overridden independently.
+float64[3] position
+bool[3] orientation_override
+float64[3] orientation_rpy
+float64 speed_mm_s
+float64 zone_mm
+---
+bool success
+string message

@@ -1,0 +1,19 @@
+# Trigger or read one cached vision result.
+#
+# motion_mode:
+#   1 = two named points for left/right arms
+#   2 = one point used as the desired dual-arm midpoint
+#   3 = one point plus per-arm offsets
+#   4 = one point used by target/current point-delta correction
+#   5 = one point used by independent left/right point-delta correction
+#   6 = one scalar value encoded in left_pose.position.x
+string key
+int32 trigger_value
+string[] labels
+int32 motion_mode
+string[] point_names
+---
+bool success
+string message
+geometry_msgs/Pose left_pose
+geometry_msgs/Pose right_pose

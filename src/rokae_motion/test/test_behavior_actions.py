@@ -18,6 +18,15 @@ class FakeExecutor:
     def move_l_relative(self, parameters) -> None:
         self.calls.append(("move_l_relative", parameters))
 
+    def trigger_vision(self, parameters) -> None:
+        self.calls.append(("vision", parameters))
+
+    def move_l_vision(self, parameters) -> None:
+        self.calls.append(("move_l_vision", parameters))
+
+    def control_hand(self, parameters) -> None:
+        self.calls.append(("hand", parameters))
+
     def wait(self, duration_s) -> None:
         self.calls.append(("wait", duration_s))
 
@@ -73,4 +82,44 @@ def test_relative_move_l_behavior() -> None:
 
     assert executor.calls == [
         ("move_l_relative", action.parameters)
+    ]
+
+
+def test_hand_behavior() -> None:
+    executor = FakeExecutor()
+    action = SimpleNamespace(
+        action_type="hand",
+        parameters={
+            "requests": {
+                "left": {
+                    "command": "motors",
+                    "values": [255, 255, 255, 255, 255, 255],
+                }
+            },
+            "response_timeout_s": 5.0,
+        },
+    )
+
+    execute_behavior(executor, action)
+
+    assert executor.calls == [("hand", action.parameters)]
+
+
+def test_vision_behaviors() -> None:
+    executor = FakeExecutor()
+    vision = SimpleNamespace(
+        action_type="vision",
+        parameters={"key": "target"},
+    )
+    motion = SimpleNamespace(
+        action_type="move_l_vision",
+        parameters={"motion_mode": 4},
+    )
+
+    execute_behavior(executor, vision)
+    execute_behavior(executor, motion)
+
+    assert executor.calls == [
+        ("vision", vision.parameters),
+        ("move_l_vision", motion.parameters),
     ]
