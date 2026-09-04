@@ -14,12 +14,13 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rokae_interfaces REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(Threads REQUIRED)
 
 # Default layout:
-#   /home/niic/cxl/xCoreSDK-v0.7.1.ar_6
+#   /home/niic/aide/hardware/arm/xCoreSDK-v0.7.1.ar_6
 #   /home/niic/rokae_ws
 # Override it with either:
 #   export ROKAE_SDK_ROOT=/path/to/xCoreSDK-v0.7.1.ar_6
@@ -27,6 +28,11 @@ find_package(Threads REQUIRED)
 #   colcon build --cmake-args -DROKAE_SDK_ROOT=/path/to/sdk
 get_filename_component(
   DEFAULT_ROKAE_SDK_ROOT
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../../aide/hardware/arm/xCoreSDK-v0.7.1.ar_6"
+  ABSOLUTE
+)
+get_filename_component(
+  LEGACY_ROKAE_SDK_ROOT
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../cxl/xCoreSDK-v0.7.1.ar_6"
   ABSOLUTE
 )
@@ -42,6 +48,23 @@ set(
   CACHE PATH
   "Absolute path to the xCoreSDK root"
 )
+
+# Existing workspaces can retain the old default in CMakeCache.txt. Migrate
+# only that known legacy value; explicit custom SDK paths remain untouched.
+if(ROKAE_SDK_ROOT STREQUAL LEGACY_ROKAE_SDK_ROOT AND
+   NOT EXISTS "${ROKAE_SDK_ROOT}/include/rokae/robot.h" AND
+   EXISTS "${DEFAULT_ROKAE_SDK_ROOT}/include/rokae/robot.h")
+  message(STATUS
+    "Migrating cached ROKAE_SDK_ROOT from ${LEGACY_ROKAE_SDK_ROOT} "
+    "to ${DEFAULT_ROKAE_SDK_ROOT}")
+  set(
+    ROKAE_SDK_ROOT
+    "${DEFAULT_ROKAE_SDK_ROOT}"
+    CACHE PATH
+    "Absolute path to the xCoreSDK root"
+    FORCE
+  )
+endif()
 
 if(NOT EXISTS "${ROKAE_SDK_ROOT}/include/rokae/robot.h")
   message(FATAL_ERROR
@@ -147,6 +170,10 @@ set_target_properties(Rokae::xCoreSDK PROPERTIES
 )
 
 function(configure_rokae_target target_name)
+  target_include_directories(${target_name} PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  )
+
   # ament_target_dependencies() uses the plain target_link_libraries
   # signature on ROS 2 Humble, so this target must use the same signature.
   target_link_libraries(${target_name}
@@ -163,65 +190,36 @@ function(configure_rokae_target target_name)
 endfunction()
 
 add_executable(
-  ros_moveabsj_action_server
-  src/ros_moveabsj_action_server.cpp
-)
-configure_rokae_target(ros_moveabsj_action_server)
-ament_target_dependencies(ros_moveabsj_action_server
-  control_msgs
-  rclcpp
-  rclcpp_action
-)
-
-add_executable(
-  ros_movel_service
-  src/ros_movel_service.cpp
-)
-configure_rokae_target(ros_movel_service)
-ament_target_dependencies(ros_movel_service
-  rclcpp
-  rokae_interfaces
-)
-
-add_executable(
-  ros_hand_service
+  ros_dual_arm_driver
+  src/ros_dual_arm_driver.cpp
+  src/ros_go_home_service.cpp
   src/ros_hand_service.cpp
-)
-configure_rokae_target(ros_hand_service)
-ament_target_dependencies(ros_hand_service
-  rclcpp
-  rokae_interfaces
-)
-
-add_executable(
-  ros_robot_initializer_service
-  src/ros_robot_initializer_service.cpp
-)
-configure_rokae_target(ros_robot_initializer_service)
-ament_target_dependencies(ros_robot_initializer_service
-  rclcpp
-  std_srvs
-)
-
-add_executable(
-  ros_pos_publisher
+  src/ros_moveabsj_action_server.cpp
+  src/ros_movel_service.cpp
   src/ros_pos_publisher.cpp
+  src/ros_robot_initializer_service.cpp
+  src/ros_servoj_subscriber.cpp
 )
-configure_rokae_target(ros_pos_publisher)
-ament_target_dependencies(ros_pos_publisher
+configure_rokae_target(ros_dual_arm_driver)
+target_compile_definitions(ros_dual_arm_driver PRIVATE
+  ROKAE_UNIFIED_DRIVER
+  XMATEMODEL_LIB_SUPPORTED
+)
+ament_target_dependencies(ros_dual_arm_driver
+  control_msgs
   geometry_msgs
   rclcpp
+  rclcpp_action
+  rokae_interfaces
   sensor_msgs
+  std_msgs
+  std_srvs
   tf2
 )
 
 # ROS 2 searches <install-prefix>/lib/<package-name> for node executables.
 install(TARGETS
-  ros_hand_service
-  ros_moveabsj_action_server
-  ros_movel_service
-  ros_pos_publisher
-  ros_robot_initializer_service
+  ros_dual_arm_driver
   DESTINATION lib/${PROJECT_NAME}
 )
 

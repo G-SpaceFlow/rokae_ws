@@ -6,6 +6,8 @@ find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/DualArmServoJ.msg"
+  "msg/ServoJ.msg"
   "srv/ControlHand.srv"
   "srv/GetCartesianState.srv"
   "srv/GetVisionTarget.srv"

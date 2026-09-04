@@ -35,6 +35,8 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 
+#include "rokae_driver/node_factories.hpp"
+#include "rokae_driver/shared_arm_hardware.hpp"
 #include "rokae/robot.h"
 
 using FollowJointTrajectory =
@@ -75,9 +77,8 @@ struct ArmContext {
   std::string parameterPrefix;
   std::string actionName;
   std::array<std::string, kJointCount> jointNames;
-  std::unique_ptr<rokae::ArRobot> robot;
+  std::shared_ptr<rokae_driver::SharedArmHardware> hardware;
   std::atomic_bool active{false};
-  std::mutex sdkMutex;
   rclcpp_action::Server<FollowJointTrajectory>::SharedPtr server;
 };
 
@@ -97,7 +98,7 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
   RokaeMoveAbsJActionServer()
       : Node("rokae_moveabsj_action_server") {
     left_ = createArm(
-        "left", "192.168.0.160", "192.168.0.10",
+        "left", "192.168.4.160", "192.168.4.10",
         "/left_arm/move_absj");
     right_ = createArm(
         "right", "192.168.2.160", "192.168.2.10",
@@ -146,10 +147,9 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
     }
 
     RCLCPP_INFO(
-        get_logger(), "Connecting %s arm: robot=%s, local=%s",
+        get_logger(), "Using shared %s arm: robot=%s, local=%s",
         side.c_str(), robotIp.c_str(), localIp.c_str());
-    arm->robot =
-        std::make_unique<rokae::ArRobot>(robotIp, localIp);
+    arm->hardware = rokae_driver::sharedArm(side, robotIp, localIp);
     return arm;
   }
 
@@ -352,7 +352,8 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
       std::array<double, kJointCount> &startJoints,
       std::string &reason) {
     std::error_code ec;
-    const auto power = arm.robot->powerState(ec);
+    const auto power = arm.hardware->withRobot(
+        [&ec](rokae::ArRobot &robot) { return robot.powerState(ec); });
     if (ec) {
       reason = sdkError("powerState", ec);
       return false;
@@ -363,7 +364,10 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
       return false;
     }
 
-    const auto state = arm.robot->operationState(ec);
+    const auto state = arm.hardware->withRobot(
+        [&ec](rokae::ArRobot &robot) {
+          return robot.operationState(ec);
+        });
     if (ec) {
       reason = sdkError("operationState", ec);
       return false;
@@ -373,8 +377,10 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
       return false;
     }
 
-    const bool softLimitEnabled =
-        arm.robot->getSoftLimit(softLimits, ec);
+    const bool softLimitEnabled = arm.hardware->withRobot(
+        [&softLimits, &ec](rokae::ArRobot &robot) {
+          return robot.getSoftLimit(softLimits, ec);
+        });
     if (ec) {
       reason = sdkError("getSoftLimit", ec);
       return false;
@@ -384,7 +390,8 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
       return false;
     }
 
-    startJoints = arm.robot->jointPos(ec);
+    startJoints = arm.hardware->withRobot(
+        [&ec](rokae::ArRobot &robot) { return robot.jointPos(ec); });
     if (ec) {
       reason = sdkError("jointPos", ec);
       return false;
@@ -434,10 +441,18 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
   void executeGoal(
       ArmContext &arm, const std::shared_ptr<GoalHandle> goalHandle) {
     ActiveGoalGuard activeGuard(arm.active);
-    std::unique_lock<std::mutex> sdkLock(arm.sdkMutex);
 
     auto result =
         std::make_shared<FollowJointTrajectory::Result>();
+    std::unique_lock<std::mutex> commandLock(
+        arm.hardware->commandMutex(), std::try_to_lock);
+    if (!commandLock.owns_lock()) {
+      abortGoal(
+          goalHandle, result,
+          FollowJointTrajectory::Result::INVALID_GOAL,
+          arm.side + " arm is occupied by another control command");
+      return;
+    }
     std::array<double, kJointCount> target{};
     std::string reason;
 
@@ -465,23 +480,30 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
       }
 
       std::error_code ec;
-      arm.robot->setMotionControlMode(
-          rokae::MotionControlMode::NrtCommand, ec);
+      arm.hardware->withRobot([&ec](rokae::ArRobot &robot) {
+        robot.setMotionControlMode(
+            rokae::MotionControlMode::NrtCommand, ec);
+      });
       if (ec) {
         abortSdkGoal(goalHandle, result, arm, "setMotionControlMode", ec);
         return;
       }
-      arm.robot->setOperateMode(rokae::OperateMode::automatic, ec);
+      arm.hardware->withRobot([&ec](rokae::ArRobot &robot) {
+        robot.setOperateMode(rokae::OperateMode::automatic, ec);
+      });
       if (ec) {
         abortSdkGoal(goalHandle, result, arm, "setOperateMode", ec);
         return;
       }
-      arm.robot->adjustSpeedOnline(1.0, ec);
+      arm.hardware->withRobot([&ec](rokae::ArRobot &robot) {
+        robot.adjustSpeedOnline(1.0, ec);
+      });
       if (ec) {
         abortSdkGoal(goalHandle, result, arm, "adjustSpeedOnline", ec);
         return;
       }
-      arm.robot->moveReset(ec);
+      arm.hardware->withRobot(
+          [&ec](rokae::ArRobot &robot) { robot.moveReset(ec); });
       if (ec) {
         abortSdkGoal(goalHandle, result, arm, "moveReset", ec);
         return;
@@ -494,14 +516,18 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
       command.jointSpeed = options.jointSpeedScale;
 
       std::string commandId;
-      arm.robot->moveAppend({command}, commandId, ec);
+      arm.hardware->withRobot(
+          [&command, &commandId, &ec](rokae::ArRobot &robot) {
+            robot.moveAppend({command}, commandId, ec);
+          });
       if (ec) {
         abortSdkGoal(goalHandle, result, arm, "moveAppend", ec);
         return;
       }
 
       // This is the call that actually triggers robot motion.
-      arm.robot->moveStart(ec);
+      arm.hardware->withRobot(
+          [&ec](rokae::ArRobot &robot) { robot.moveStart(ec); });
       if (ec) {
         abortSdkGoal(goalHandle, result, arm, "moveStart", ec);
         return;
@@ -540,7 +566,10 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
           return;
         }
 
-        const auto joints = arm.robot->jointPos(ec);
+        const auto joints = arm.hardware->withRobot(
+            [&ec](rokae::ArRobot &robot) {
+              return robot.jointPos(ec);
+            });
         if (ec || !finiteArray(joints)) {
           stopAndReset(arm);
           const std::string message =
@@ -553,7 +582,10 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
           return;
         }
 
-        const auto velocities = arm.robot->jointVel(ec);
+        const auto velocities = arm.hardware->withRobot(
+            [&ec](rokae::ArRobot &robot) {
+              return robot.jointVel(ec);
+            });
         if (ec || !finiteArray(velocities)) {
           stopAndReset(arm);
           const std::string message =
@@ -605,7 +637,10 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
 
         publishFeedback(arm, goalHandle, target, joints);
 
-        const auto state = arm.robot->operationState(ec);
+        const auto state = arm.hardware->withRobot(
+            [&ec](rokae::ArRobot &robot) {
+              return robot.operationState(ec);
+            });
         if (ec) {
           stopAndReset(arm);
           abortSdkGoal(goalHandle, result, arm, "operationState", ec);
@@ -685,7 +720,8 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
   void stopAndReset(ArmContext &arm) noexcept {
     try {
       std::error_code ec;
-      arm.robot->stop(ec);
+      arm.hardware->withRobot(
+          [&ec](rokae::ArRobot &robot) { robot.stop(ec); });
       if (ec) {
         RCLCPP_ERROR(
             get_logger(), "%s stop failed: %s",
@@ -697,7 +733,10 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
           std::chrono::seconds(5);
       while (std::chrono::steady_clock::now() < deadline) {
         ec.clear();
-        const auto state = arm.robot->operationState(ec);
+        const auto state = arm.hardware->withRobot(
+            [&ec](rokae::ArRobot &robot) {
+              return robot.operationState(ec);
+            });
         if (ec || state == rokae::OperationState::idle ||
             state == rokae::OperationState::unknown) {
           break;
@@ -706,7 +745,8 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
       }
 
       ec.clear();
-      arm.robot->moveReset(ec);
+      arm.hardware->withRobot(
+          [&ec](rokae::ArRobot &robot) { robot.moveReset(ec); });
       if (ec) {
         RCLCPP_ERROR(
             get_logger(), "%s moveReset failed: %s",
@@ -721,8 +761,11 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
 
   void printControllerErrors(ArmContext &arm) {
     std::error_code ec;
-    const auto logs =
-        arm.robot->queryControllerLog(5, {rokae::LogInfo::error}, ec);
+    const auto logs = arm.hardware->withRobot(
+        [&ec](rokae::ArRobot &robot) {
+          return robot.queryControllerLog(
+              5, {rokae::LogInfo::error}, ec);
+        });
     if (ec) return;
     for (const auto &log : logs) {
       RCLCPP_ERROR(
@@ -767,6 +810,15 @@ class RokaeMoveAbsJActionServer : public rclcpp::Node {
   std::vector<std::thread> executionThreads_;
 };
 
+namespace rokae_driver {
+
+std::shared_ptr<rclcpp::Node> makeMoveAbsJActionServer() {
+  return std::make_shared<RokaeMoveAbsJActionServer>();
+}
+
+}  // namespace rokae_driver
+
+#ifndef ROKAE_UNIFIED_DRIVER
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
   int exitCode = 0;
@@ -781,3 +833,4 @@ int main(int argc, char **argv) {
   rclcpp::shutdown();
   return exitCode;
 }
+#endif

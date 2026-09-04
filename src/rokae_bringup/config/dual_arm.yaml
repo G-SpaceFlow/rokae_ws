@@ -5,8 +5,8 @@
 rokae_moveabsj_action_server:
   ros__parameters:
     left_arm:
-      robot_ip: "192.168.0.160"
-      local_ip: "192.168.0.10"
+      robot_ip: "192.168.4.160"
+      local_ip: "192.168.4.10"
       speed_mm_s: 50.0
       joint_speed_scale: 0.05
       zone_mm: 0.0
@@ -31,8 +31,8 @@ rokae_moveabsj_action_server:
 rokae_movel_service:
   ros__parameters:
     left_arm:
-      robot_ip: "192.168.0.160"
-      local_ip: "192.168.0.10"
+      robot_ip: "192.168.4.160"
+      local_ip: "192.168.4.10"
       timeout_s: 60.0
       max_translation_delta_m: 0.50
       max_rotation_delta_rad: 1.0
@@ -57,8 +57,8 @@ rokae_movel_service:
 rokae_hand_service:
   ros__parameters:
     left_hand:
-      robot_ip: "192.168.0.160"
-      local_ip: "192.168.0.10"
+      robot_ip: "192.168.4.160"
+      local_ip: "192.168.4.10"
       can_id: 40  # 0x28
       receive_timeout_ms: 200
       receive_attempts: 3
@@ -74,15 +74,44 @@ rokae_hand_service:
 
 rokae_robot_initializer:
   ros__parameters:
-    # Keep the dedicated op.cpp initialization sessions separate from the
-    # long-lived motion/state sessions, which use the .10 local addresses.
+    # Match the currently deployed cxl/op.cpp network configuration.
     left_arm:
-      robot_ip: "192.168.0.160"
-      local_ip: "192.168.0.22"
+      robot_ip: "192.168.4.160"
+      local_ip: "192.168.4.10"
 
     right_arm:
       robot_ip: "192.168.2.160"
-      local_ip: "192.168.2.22"
+      local_ip: "192.168.2.10"
+
+rokae_go_home:
+  ros__parameters:
+    left_arm.robot_ip: "192.168.4.160"
+    left_arm.local_ip: "192.168.4.10"
+    left_arm.home_positions: [1.712167996, 1.570796327, -1.570796327, 0.0, 0.0, 0.0, 0.0]
+    right_arm.robot_ip: "192.168.2.160"
+    right_arm.local_ip: "192.168.2.10"
+    right_arm.home_positions: [1.7121, -1.570796327, -1.570796327, 0.0, 0.0, 0.0, 0.0]
+    speed_mm_s: 50.0
+    joint_speed_scale: 0.05
+    zone_mm: 0.0
+    timeout_s: 60.0
+    soft_limit_margin_rad: 0.08
+    max_goal_delta_rad: 2.3
+    max_joint_speed_rad_s: 0.40
+    goal_tolerance_rad: 0.01
+
+rokae_servoj:
+  ros__parameters:
+    left_arm.robot_ip: "192.168.4.160"
+    left_arm.local_ip: "192.168.4.10"
+    right_arm.robot_ip: "192.168.2.160"
+    right_arm.local_ip: "192.168.2.10"
+    period_s: 0.02
+    lookahead_s: 0.02
+    gain: 0.0
+    command_timeout_s: 0.10
+    max_command_step_rad: 0.02
+    soft_limit_margin_rad: 0.08
 
 bt_target_server:
   ros__parameters:
@@ -98,10 +127,11 @@ bt_target_server:
 /left_arm/rokae_state_publisher:
   ros__parameters:
     arm_name: "left"
-    robot_ip: "192.168.0.160"
-    local_ip: "192.168.0.10"
+    robot_ip: "192.168.4.160"
+    local_ip: "192.168.4.10"
     frame_id: "left_external_ref"
     rate_hz: 20.0
+    publish_jacobian: true
 
 /right_arm/rokae_state_publisher:
   ros__parameters:
@@ -110,3 +140,4 @@ bt_target_server:
     local_ip: "192.168.2.10"
     frame_id: "right_external_ref"
     rate_hz: 20.0
+    publish_jacobian: true

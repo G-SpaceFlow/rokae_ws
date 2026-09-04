@@ -28,6 +28,8 @@
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rokae_driver/node_factories.hpp"
+#include "rokae_driver/shared_arm_hardware.hpp"
 #include "rokae_interfaces/srv/control_hand.hpp"
 #include "rokae/robot.h"
 
@@ -41,7 +43,7 @@ struct HandContext {
   int receiveTimeoutMs{200};
   int receiveAttempts{3};
   int replyDelayMs{1000};
-  std::unique_ptr<rokae::ArRobot> robot;
+  std::shared_ptr<rokae_driver::SharedArmHardware> hardware;
   std::mutex mutex;
   rclcpp::CallbackGroup::SharedPtr callbackGroup;
   rclcpp::Service<ControlHand>::SharedPtr service;
@@ -120,7 +122,7 @@ class RokaeHandService : public rclcpp::Node {
  public:
   RokaeHandService() : Node("rokae_hand_service") {
     left_ = createHand(
-        "left", "192.168.0.160", "192.168.0.10", 0x28,
+        "left", "192.168.4.160", "192.168.4.10", 0x28,
         "/left_arm/control_hand");
     right_ = createHand(
         "right", "192.168.2.160", "192.168.2.10", 0x27,
@@ -177,10 +179,10 @@ class RokaeHandService : public rclcpp::Node {
 
     RCLCPP_INFO(
         get_logger(),
-        "Connecting %s hand CAN channel: robot=%s, local=%s, CAN ID=%s",
+        "Using shared %s arm for hand CAN: robot=%s, local=%s, CAN ID=%s",
         side.c_str(), robotIp.c_str(), localIp.c_str(),
         hexadecimalId(static_cast<std::uint32_t>(canId)).c_str());
-    hand->robot = std::make_unique<rokae::ArRobot>(robotIp, localIp);
+    hand->hardware = rokae_driver::sharedArm(side, robotIp, localIp);
     hand->callbackGroup = create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
 
@@ -224,8 +226,11 @@ class RokaeHandService : public rclcpp::Node {
       frame.data = payload;
 
       std::error_code error;
-      hand.robot->CANSendData(
-          "uint8", std::vector<rokae::CANFrame>{frame}, error);
+      hand.hardware->withRobot(
+          [&frame, &error](rokae::ArRobot &robot) {
+            robot.CANSendData(
+                "uint8", std::vector<rokae::CANFrame>{frame}, error);
+          });
       if (error) {
         fail(response, sdkError("CANSendData", error));
         return;
@@ -237,8 +242,11 @@ class RokaeHandService : public rclcpp::Node {
       rokae::CANFrame received;
       for (int attempt = 1; attempt <= hand.receiveAttempts; ++attempt) {
         error.clear();
-        hand.robot->CANReceiveData(
-            hand.receiveTimeoutMs, "uint8", received, error);
+        hand.hardware->withRobot(
+            [&hand, &received, &error](rokae::ArRobot &robot) {
+              robot.CANReceiveData(
+                  hand.receiveTimeoutMs, "uint8", received, error);
+            });
         if (!error) {
           const bool expectedId =
               received.frame_id == hand.canId ||
@@ -298,6 +306,15 @@ class RokaeHandService : public rclcpp::Node {
   std::unique_ptr<HandContext> right_;
 };
 
+namespace rokae_driver {
+
+std::shared_ptr<rclcpp::Node> makeHandService() {
+  return std::make_shared<RokaeHandService>();
+}
+
+}  // namespace rokae_driver
+
+#ifndef ROKAE_UNIFIED_DRIVER
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
   try {
@@ -316,3 +333,4 @@ int main(int argc, char **argv) {
   rclcpp::shutdown();
   return 0;
 }
+#endif

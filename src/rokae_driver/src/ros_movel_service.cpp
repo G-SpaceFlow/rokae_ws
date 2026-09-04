@@ -31,6 +31,8 @@
 #include <thread>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rokae_driver/node_factories.hpp"
+#include "rokae_driver/shared_arm_hardware.hpp"
 #include "rokae_interfaces/srv/get_cartesian_state.hpp"
 #include "rokae_interfaces/srv/move_l.hpp"
 #include "rokae_interfaces/srv/move_l_relative.hpp"
@@ -60,8 +62,7 @@ std::string sdkError(
 struct ArmContext {
   std::string side;
   std::string parameterPrefix;
-  std::unique_ptr<rokae::ArRobot> robot;
-  std::mutex mutex;
+  std::shared_ptr<rokae_driver::SharedArmHardware> hardware;
   rclcpp::CallbackGroup::SharedPtr callbackGroup;
   rclcpp::Service<MoveL>::SharedPtr service;
   rclcpp::Service<MoveLRelative>::SharedPtr relativeService;
@@ -75,7 +76,7 @@ class RokaeMoveLService : public rclcpp::Node {
  public:
   RokaeMoveLService() : Node("rokae_movel_service") {
     left_ = createArm(
-        "left", "192.168.0.160", "192.168.0.10",
+        "left", "192.168.4.160", "192.168.4.10",
         "/left_arm/move_l", "/left_arm/move_l_relative");
     right_ = createArm(
         "right", "192.168.2.160", "192.168.2.10",
@@ -113,9 +114,9 @@ class RokaeMoveLService : public rclcpp::Node {
     arm->parameterPrefix = prefix;
 
     RCLCPP_INFO(
-        get_logger(), "Connecting %s arm: robot=%s, local=%s",
+        get_logger(), "Using shared %s arm: robot=%s, local=%s",
         side.c_str(), robotIp.c_str(), localIp.c_str());
-    arm->robot = std::make_unique<rokae::ArRobot>(robotIp, localIp);
+    arm->hardware = rokae_driver::sharedArm(side, robotIp, localIp);
     arm->callbackGroup = create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
 
@@ -175,17 +176,21 @@ class RokaeMoveLService : public rclcpp::Node {
 
   void readCartesianState(
       ArmContext &arm, GetCartesianState::Response &response) {
-    std::unique_lock<std::mutex> lock(arm.mutex, std::try_to_lock);
+    std::unique_lock<std::mutex> lock(
+        arm.hardware->commandMutex(), std::try_to_lock);
     if (!lock.owns_lock()) {
       fail(
           response,
-          arm.side + " arm is already executing a MoveL request");
+          arm.side + " arm is occupied by another control command");
       return;
     }
 
     std::error_code ec;
-    const auto current =
-        arm.robot->cartPosture(rokae::CoordinateType::endInRef, ec);
+    const auto current = arm.hardware->withRobot(
+        [&ec](rokae::ArRobot &robot) {
+          return robot.cartPosture(
+              rokae::CoordinateType::endInRef, ec);
+        });
     if (ec) {
       fail(response, sdkError("cartPosture(endInRef)", ec));
       return;
@@ -201,9 +206,10 @@ class RokaeMoveLService : public rclcpp::Node {
   void executePoseTarget(
       ArmContext &arm, const MoveLTarget::Request &request,
       MoveLTarget::Response &response) {
-    std::unique_lock<std::mutex> lock(arm.mutex, std::try_to_lock);
+    std::unique_lock<std::mutex> lock(
+        arm.hardware->commandMutex(), std::try_to_lock);
     if (!lock.owns_lock()) {
-      fail(response, arm.side + " arm is already executing a MoveL request");
+      fail(response, arm.side + " arm is occupied by another control command");
       return;
     }
 
@@ -227,8 +233,11 @@ class RokaeMoveLService : public rclcpp::Node {
 
     try {
       std::error_code ec;
-      const auto current =
-          arm.robot->cartPosture(rokae::CoordinateType::endInRef, ec);
+      const auto current = arm.hardware->withRobot(
+          [&ec](rokae::ArRobot &robot) {
+            return robot.cartPosture(
+                rokae::CoordinateType::endInRef, ec);
+          });
       if (ec) {
         fail(response, sdkError("cartPosture(endInRef)", ec));
         return;
@@ -262,9 +271,10 @@ class RokaeMoveLService : public rclcpp::Node {
   void executeRelative(
       ArmContext &arm, const MoveLRelative::Request &request,
       MoveLRelative::Response &response) {
-    std::unique_lock<std::mutex> lock(arm.mutex, std::try_to_lock);
+    std::unique_lock<std::mutex> lock(
+        arm.hardware->commandMutex(), std::try_to_lock);
     if (!lock.owns_lock()) {
-      fail(response, arm.side + " arm is already executing a MoveL request");
+      fail(response, arm.side + " arm is occupied by another control command");
       return;
     }
 
@@ -290,8 +300,11 @@ class RokaeMoveLService : public rclcpp::Node {
 
     try {
       std::error_code ec;
-      const auto current =
-          arm.robot->cartPosture(rokae::CoordinateType::endInRef, ec);
+      const auto current = arm.hardware->withRobot(
+          [&ec](rokae::ArRobot &robot) {
+            return robot.cartPosture(
+                rokae::CoordinateType::endInRef, ec);
+          });
       if (ec) {
         fail(response, sdkError("cartPosture(endInRef)", ec));
         return;
@@ -324,9 +337,10 @@ class RokaeMoveLService : public rclcpp::Node {
   void execute(
       ArmContext &arm, const MoveL::Request &request,
       MoveL::Response &response) {
-    std::unique_lock<std::mutex> lock(arm.mutex, std::try_to_lock);
+    std::unique_lock<std::mutex> lock(
+        arm.hardware->commandMutex(), std::try_to_lock);
     if (!lock.owns_lock()) {
-      fail(response, arm.side + " arm is already executing a MoveL request");
+      fail(response, arm.side + " arm is occupied by another control command");
       return;
     }
 
@@ -338,8 +352,11 @@ class RokaeMoveLService : public rclcpp::Node {
 
     try {
       std::error_code ec;
-      const auto current =
-          arm.robot->cartPosture(rokae::CoordinateType::endInRef, ec);
+      const auto current = arm.hardware->withRobot(
+          [&ec](rokae::ArRobot &robot) {
+            return robot.cartPosture(
+                rokae::CoordinateType::endInRef, ec);
+          });
       if (ec) {
         fail(response, sdkError("cartPosture(endInRef)", ec));
         return;
@@ -383,23 +400,29 @@ class RokaeMoveLService : public rclcpp::Node {
     }
 
     std::error_code ec;
-    arm.robot->setMotionControlMode(
-        rokae::MotionControlMode::NrtCommand, ec);
+    arm.hardware->withRobot([&ec](rokae::ArRobot &robot) {
+      robot.setMotionControlMode(rokae::MotionControlMode::NrtCommand, ec);
+    });
     if (ec) {
       fail(response, sdkError("setMotionControlMode(NrtCommand)", ec));
       return;
     }
-    arm.robot->setOperateMode(rokae::OperateMode::automatic, ec);
+    arm.hardware->withRobot([&ec](rokae::ArRobot &robot) {
+      robot.setOperateMode(rokae::OperateMode::automatic, ec);
+    });
     if (ec) {
       fail(response, sdkError("setOperateMode(automatic)", ec));
       return;
     }
-    arm.robot->setDefaultConfOpt(false, ec);
+    arm.hardware->withRobot([&ec](rokae::ArRobot &robot) {
+      robot.setDefaultConfOpt(false, ec);
+    });
     if (ec) {
       fail(response, sdkError("setDefaultConfOpt(false)", ec));
       return;
     }
-    arm.robot->moveReset(ec);
+    arm.hardware->withRobot(
+        [&ec](rokae::ArRobot &robot) { robot.moveReset(ec); });
     if (ec) {
       fail(response, sdkError("moveReset", ec));
       return;
@@ -407,12 +430,16 @@ class RokaeMoveLService : public rclcpp::Node {
 
     const rokae::MoveLCommand command(target, speedMmS, zoneMm);
     std::string commandId;
-    arm.robot->moveAppend({command}, commandId, ec);
+    arm.hardware->withRobot(
+        [&command, &commandId, &ec](rokae::ArRobot &robot) {
+          robot.moveAppend({command}, commandId, ec);
+        });
     if (ec) {
       fail(response, sdkError("moveAppend(MoveL)", ec));
       return;
     }
-    arm.robot->moveStart(ec);
+    arm.hardware->withRobot(
+        [&ec](rokae::ArRobot &robot) { robot.moveStart(ec); });
     if (ec) {
       fail(response, sdkError("moveStart", ec));
       return;
@@ -443,7 +470,10 @@ class RokaeMoveLService : public rclcpp::Node {
     };
 
     while (rclcpp::ok()) {
-      const auto state = arm.robot->operationState(ec);
+      const auto state = arm.hardware->withRobot(
+          [&ec](rokae::ArRobot &robot) {
+            return robot.operationState(ec);
+          });
       if (ec) {
         stopAndReset(arm);
         fail(response, sdkError("operationState", ec));
@@ -605,8 +635,11 @@ class RokaeMoveLService : public rclcpp::Node {
       ArmContext &arm, const rokae::CartesianPosition &target,
       PoseError &error, std::string &reason) {
     std::error_code ec;
-    const auto current =
-        arm.robot->cartPosture(rokae::CoordinateType::endInRef, ec);
+    const auto current = arm.hardware->withRobot(
+        [&ec](rokae::ArRobot &robot) {
+          return robot.cartPosture(
+              rokae::CoordinateType::endInRef, ec);
+        });
     if (ec) {
       reason = sdkError("cartPosture(endInRef)", ec);
       return false;
@@ -617,14 +650,16 @@ class RokaeMoveLService : public rclcpp::Node {
 
   void stopAndReset(ArmContext &arm) {
     std::error_code ec;
-    arm.robot->stop(ec);
+    arm.hardware->withRobot(
+        [&ec](rokae::ArRobot &robot) { robot.stop(ec); });
     if (ec) {
       RCLCPP_ERROR(
           get_logger(), "%s arm stop failed: %s",
           arm.side.c_str(), sdkError("stop", ec).c_str());
     }
     ec.clear();
-    arm.robot->moveReset(ec);
+    arm.hardware->withRobot(
+        [&ec](rokae::ArRobot &robot) { robot.moveReset(ec); });
     if (ec) {
       RCLCPP_ERROR(
           get_logger(), "%s arm moveReset failed: %s",
@@ -668,6 +703,15 @@ class RokaeMoveLService : public rclcpp::Node {
   std::unique_ptr<ArmContext> right_;
 };
 
+namespace rokae_driver {
+
+std::shared_ptr<rclcpp::Node> makeMoveLService() {
+  return std::make_shared<RokaeMoveLService>();
+}
+
+}  // namespace rokae_driver
+
+#ifndef ROKAE_UNIFIED_DRIVER
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
   try {
@@ -685,3 +729,4 @@ int main(int argc, char **argv) {
   rclcpp::shutdown();
   return 0;
 }
+#endif

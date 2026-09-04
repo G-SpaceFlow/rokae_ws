@@ -8,6 +8,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -19,12 +20,14 @@ def generate_launch_description() -> LaunchDescription:
 
     parameters_file = LaunchConfiguration("params_file")
     start_hand_service = LaunchConfiguration("start_hand_service")
+    start_go_home_service = LaunchConfiguration("start_go_home_service")
     start_initializer_service = LaunchConfiguration(
         "start_initializer_service"
     )
     start_move_server = LaunchConfiguration("start_move_server")
     start_movel_service = LaunchConfiguration("start_movel_service")
     start_state_publisher = LaunchConfiguration("start_state_publisher")
+    start_servoj = LaunchConfiguration("start_servoj")
     start_chassis_navigation = LaunchConfiguration(
         "start_chassis_navigation"
     )
@@ -34,6 +37,11 @@ def generate_launch_description() -> LaunchDescription:
 
     return LaunchDescription(
         [
+            DeclareLaunchArgument(
+                "start_go_home_service",
+                default_value="true",
+                description="Start left, right and dual-arm go-home services",
+            ),
             DeclareLaunchArgument(
                 "start_hand_service",
                 default_value="true",
@@ -60,9 +68,16 @@ def generate_launch_description() -> LaunchDescription:
                 description="Start the dual-arm MoveAbsJ action server",
             ),
             DeclareLaunchArgument(
+                "start_servoj",
+                default_value="true",
+                description="Start left, right and dual-arm ServoJ topics",
+            ),
+            DeclareLaunchArgument(
                 "start_state_publisher",
                 default_value="true",
-                description="Publish both arms' joints and TCP poses",
+                description=(
+                    "Publish both arms' joints, TCP poses and Jacobians"
+                ),
             ),
             DeclareLaunchArgument(
                 "start_chassis_navigation",
@@ -80,38 +95,34 @@ def generate_launch_description() -> LaunchDescription:
             ),
             Node(
                 package="rokae_driver",
-                executable="ros_robot_initializer_service",
+                executable="ros_dual_arm_driver",
                 output="screen",
-                parameters=[parameters_file],
-                condition=IfCondition(start_initializer_service),
-            ),
-            Node(
-                package="rokae_driver",
-                executable="ros_hand_service",
-                output="screen",
-                parameters=[parameters_file],
-                condition=IfCondition(start_hand_service),
-            ),
-            Node(
-                package="rokae_driver",
-                executable="ros_movel_service",
-                output="screen",
-                parameters=[parameters_file],
-                condition=IfCondition(start_movel_service),
-            ),
-            Node(
-                package="rokae_driver",
-                executable="ros_moveabsj_action_server",
-                output="screen",
-                parameters=[parameters_file],
-                condition=IfCondition(start_move_server),
-            ),
-            Node(
-                package="rokae_driver",
-                executable="ros_pos_publisher",
-                output="screen",
-                parameters=[parameters_file],
-                condition=IfCondition(start_state_publisher),
+                parameters=[
+                    parameters_file,
+                    {
+                        "start_hand_service": ParameterValue(
+                            start_hand_service, value_type=bool
+                        ),
+                        "start_go_home_service": ParameterValue(
+                            start_go_home_service, value_type=bool
+                        ),
+                        "start_initializer_service": ParameterValue(
+                            start_initializer_service, value_type=bool
+                        ),
+                        "start_move_server": ParameterValue(
+                            start_move_server, value_type=bool
+                        ),
+                        "start_movel_service": ParameterValue(
+                            start_movel_service, value_type=bool
+                        ),
+                        "start_state_publisher": ParameterValue(
+                            start_state_publisher, value_type=bool
+                        ),
+                        "start_servoj": ParameterValue(
+                            start_servoj, value_type=bool
+                        ),
+                    },
+                ],
             ),
             Node(
                 package="rokae_motion",

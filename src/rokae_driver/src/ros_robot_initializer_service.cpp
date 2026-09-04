@@ -8,8 +8,8 @@
  * Each request follows op.cpp exactly:
  *   connect -> NrtCommand -> automatic -> power on -> verify power state
  *
- * A fresh SDK session is created for each arm and destroyed before the
- * service returns. No motion command is constructed or sent.
+ * The request reuses the unified driver's one shared SDK session per arm.
+ * No motion command is constructed or sent.
  */
 
 #include <memory>
@@ -17,6 +17,8 @@
 #include <string>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rokae_driver/node_factories.hpp"
+#include "rokae_driver/shared_arm_hardware.hpp"
 #include "rokae/robot.h"
 #include "std_srvs/srv/trigger.hpp"
 
@@ -28,6 +30,7 @@ struct ArmConfig {
   std::string side;
   std::string robotIp;
   std::string localIp;
+  std::shared_ptr<rokae_driver::SharedArmHardware> hardware;
 };
 
 std::string sdkError(
@@ -58,9 +61,9 @@ class RokaeRobotInitializerService : public rclcpp::Node {
   RokaeRobotInitializerService()
       : Node("rokae_robot_initializer"),
         left_(loadArm(
-            "left", "192.168.0.160", "192.168.0.22")),
+            "left", "192.168.4.160", "192.168.4.10")),
         right_(loadArm(
-            "right", "192.168.2.160", "192.168.2.22")) {
+            "right", "192.168.2.160", "192.168.2.10")) {
     service_ = create_service<Trigger>(
         "/initialize_robots",
         [this](
@@ -79,13 +82,13 @@ class RokaeRobotInitializerService : public rclcpp::Node {
       const std::string &side, const std::string &defaultRobotIp,
       const std::string &defaultLocalIp) {
     const std::string prefix = side + "_arm";
+    const auto robotIp = declare_parameter<std::string>(
+        prefix + ".robot_ip", defaultRobotIp);
+    const auto localIp = declare_parameter<std::string>(
+        prefix + ".local_ip", defaultLocalIp);
     return {
-        side,
-        declare_parameter<std::string>(
-            prefix + ".robot_ip", defaultRobotIp),
-        declare_parameter<std::string>(
-            prefix + ".local_ip", defaultLocalIp),
-    };
+        side, robotIp, localIp,
+        rokae_driver::sharedArm(side, robotIp, localIp)};
   }
 
   bool initializeArm(
@@ -95,50 +98,51 @@ class RokaeRobotInitializerService : public rclcpp::Node {
           get_logger(), "Initializing %s arm: robot=%s, local=%s",
           config.side.c_str(), config.robotIp.c_str(),
           config.localIp.c_str());
-      rokae::ArRobot robot(config.robotIp, config.localIp);
-      std::error_code error;
+      return config.hardware->withRobot(
+          [&result](rokae::ArRobot &robot) {
+            std::error_code error;
+            const auto info = robot.robotInfo(error);
+            if (error) {
+              result = sdkError("robotInfo", error);
+              return false;
+            }
 
-      const auto info = robot.robotInfo(error);
-      if (error) {
-        result = sdkError("robotInfo", error);
-        return false;
-      }
+            robot.setMotionControlMode(
+                rokae::MotionControlMode::NrtCommand, error);
+            if (error) {
+              result = sdkError("setMotionControlMode(NrtCommand)", error);
+              return false;
+            }
 
-      robot.setMotionControlMode(
-          rokae::MotionControlMode::NrtCommand, error);
-      if (error) {
-        result = sdkError("setMotionControlMode(NrtCommand)", error);
-        return false;
-      }
+            robot.setOperateMode(rokae::OperateMode::automatic, error);
+            if (error) {
+              result = sdkError("setOperateMode(automatic)", error);
+              return false;
+            }
 
-      robot.setOperateMode(rokae::OperateMode::automatic, error);
-      if (error) {
-        result = sdkError("setOperateMode(automatic)", error);
-        return false;
-      }
+            robot.setPowerState(true, error);
+            if (error) {
+              result = sdkError("setPowerState(true)", error);
+              return false;
+            }
 
-      robot.setPowerState(true, error);
-      if (error) {
-        result = sdkError("setPowerState(true)", error);
-        return false;
-      }
+            const auto powerState = robot.powerState(error);
+            if (error) {
+              result = sdkError("powerState", error);
+              return false;
+            }
+            if (powerState != rokae::PowerState::on) {
+              result =
+                  "power-on verification failed; final state=" +
+                  std::string(powerStateName(powerState));
+              return false;
+            }
 
-      const auto powerState = robot.powerState(error);
-      if (error) {
-        result = sdkError("powerState", error);
-        return false;
-      }
-      if (powerState != rokae::PowerState::on) {
-        result =
-            "power-on verification failed; final state=" +
-            std::string(powerStateName(powerState));
-        return false;
-      }
-
-      result =
-          "initialized and powered on; model=" + info.type +
-          ", controller=" + info.version;
-      return true;
+            result =
+                "initialized and powered on; model=" + info.type +
+                ", controller=" + info.version;
+            return true;
+          });
     } catch (const std::exception &exception) {
       result = std::string("connection/initialization exception: ") +
           exception.what();
@@ -158,6 +162,16 @@ class RokaeRobotInitializerService : public rclcpp::Node {
         get_logger(),
         "Robot initialization requested: switching both arms to automatic "
         "mode and powering them on");
+    std::unique_lock<std::mutex> leftControl(
+        left_.hardware->commandMutex(), std::defer_lock);
+    std::unique_lock<std::mutex> rightControl(
+        right_.hardware->commandMutex(), std::defer_lock);
+    if (std::try_lock(leftControl, rightControl) != -1) {
+      response.success = false;
+      response.message =
+          "robot initialization rejected: one or both arms are occupied";
+      return;
+    }
     std::string leftResult;
     std::string rightResult;
     const bool leftSuccess = initializeArm(left_, leftResult);
@@ -181,6 +195,15 @@ class RokaeRobotInitializerService : public rclcpp::Node {
   rclcpp::Service<Trigger>::SharedPtr service_;
 };
 
+namespace rokae_driver {
+
+std::shared_ptr<rclcpp::Node> makeRobotInitializerService() {
+  return std::make_shared<RokaeRobotInitializerService>();
+}
+
+}  // namespace rokae_driver
+
+#ifndef ROKAE_UNIFIED_DRIVER
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
   try {
@@ -195,3 +218,4 @@ int main(int argc, char **argv) {
   rclcpp::shutdown();
   return 0;
 }
+#endif

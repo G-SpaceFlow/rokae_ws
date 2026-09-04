@@ -1,5 +1,8 @@
 # Rokae ROS 2 workspace
 
+完整的 Topic、Service、Action、参数、单位和错误行为说明见
+[`docs/ROS2_INTERFACE_REFERENCE.md`](docs/ROS2_INTERFACE_REFERENCE.md)。
+
 This workspace keeps the application-owned ROS 2 sources separate from the
 vendor xCoreSDK. The SDK still supplies its headers, Eigen copy and binary
 library.
@@ -8,8 +11,9 @@ Expected Linux layout:
 
 ```text
 /home/niic/
-|-- cxl/
+|-- aide/hardware/arm/
 |   `-- xCoreSDK-v0.7.1.ar_6/
+|-- dbstest_ws/                 # seer_interfaces / chassis integration
 `-- rokae_ws/
 ```
 
@@ -18,12 +22,14 @@ Expected Linux layout:
 ```bash
 cd /home/niic/rokae_ws
 source /opt/ros/humble/setup.bash
+source /home/niic/dbstest_ws/install/setup.bash
 
 # This matches the current robot computer.
-export ROKAE_SDK_ROOT=/home/niic/cxl/xCoreSDK-v0.7.1.ar_6
+export ROKAE_SDK_ROOT=/home/niic/aide/hardware/arm/xCoreSDK-v0.7.1.ar_6
 
+# The driver automatically migrates the former /home/niic/cxl SDK cache value.
 colcon build --symlink-install
-source install/setup.bash
+source install/local_setup.bash
 ```
 
 The driver selects `lib/Linux/aarch64` or `lib/Linux/x86_64` from the target
@@ -33,13 +39,14 @@ processor reported by CMake. Check the robot computer architecture with:
 uname -m
 ```
 
-For an unsupported or cross-compiled target, select the exact Linux library
-explicitly:
+For a custom SDK, unsupported target or cross-compiled target, configure the
+driver package explicitly before building the full workspace:
 
 ```bash
-colcon build --symlink-install --cmake-args \
-  -DROKAE_SDK_ROOT="/home/niic/cxl/xCoreSDK-v0.7.1.ar_6" \
+colcon build --symlink-install --packages-select rokae_driver --cmake-args \
+  -DROKAE_SDK_ROOT="/home/niic/aide/hardware/arm/xCoreSDK-v0.7.1.ar_6" \
   -DXCORESDK_LIBRARY=/absolute/path/to/libxCoreSDK.a
+colcon build --symlink-install
 ```
 
 ## Start
@@ -49,11 +56,34 @@ service, Linker Hand end-CAN service, robot-initialization service and the
 vision trigger/target cache. Starting the launch file alone does not send a
 motion or hand command, trigger vision or power on either robot.
 
+All arm SDK interfaces run inside the single `ros_dual_arm_driver` process.
+That process owns exactly two `rokae::ArRobot` objects (one left and one right)
+and shares them between state, Jacobian, initialization, MoveAbsJ, MoveL and
+hand-CAN interfaces. Per-arm SDK access is serialized, and MoveAbsJ, MoveL and
+initialization share a per-arm command lock so independent ROS interfaces
+cannot control the same arm concurrently.
+
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/niic/rokae_ws/install/setup.bash
+source /home/niic/dbstest_ws/install/setup.bash
+source /home/niic/rokae_ws/install/local_setup.bash
 ros2 launch rokae_bringup dual_arm.launch.py
 ```
+
+The workspace selects `rmw_cyclonedds_cpp` when `RMW_IMPLEMENTATION` is not
+already set. This avoids a Fast DDS client-creation hang observed on the robot
+computer while still allowing an explicit operator override.
+
+The deployed arm network values, matching the SDK programs under `cxl/`, are:
+
+| Arm | Controller IP | Robot-computer IP |
+| --- | --- | --- |
+| Left | `192.168.4.160` | `192.168.4.10` |
+| Right | `192.168.2.160` | `192.168.2.10` |
+
+Both robot-computer addresses must be assigned to active Ethernet interfaces
+before starting any Rokae driver node. The authoritative runtime copy is the
+`rokae_bringup/config/dual_arm.yaml` file installed by the workspace.
 
 Optional launch switches:
 
@@ -62,37 +92,57 @@ Optional launch switches:
 ros2 launch rokae_bringup dual_arm.launch.py \
   start_move_server:=false start_movel_service:=false \
   start_hand_service:=false start_initializer_service:=false \
+  start_servoj:=false start_go_home_service:=false \
   start_vision_target_server:=false
 
 # Action server only
 ros2 launch rokae_bringup dual_arm.launch.py \
   start_state_publisher:=false start_movel_service:=false \
   start_hand_service:=false start_initializer_service:=false \
+  start_servoj:=false start_go_home_service:=false \
   start_vision_target_server:=false
 
 # MoveL services only
 ros2 launch rokae_bringup dual_arm.launch.py \
   start_state_publisher:=false start_move_server:=false \
   start_hand_service:=false start_initializer_service:=false \
+  start_servoj:=false start_go_home_service:=false \
+  start_vision_target_server:=false
+
+# ServoJ realtime topics only
+ros2 launch rokae_bringup dual_arm.launch.py \
+  start_state_publisher:=false start_move_server:=false \
+  start_movel_service:=false start_hand_service:=false \
+  start_initializer_service:=false start_go_home_service:=false \
+  start_vision_target_server:=false
+
+# Go-home services only
+ros2 launch rokae_bringup dual_arm.launch.py \
+  start_state_publisher:=false start_move_server:=false \
+  start_movel_service:=false start_hand_service:=false \
+  start_initializer_service:=false start_servoj:=false \
   start_vision_target_server:=false
 
 # Linker Hand services only
 ros2 launch rokae_bringup dual_arm.launch.py \
   start_state_publisher:=false start_move_server:=false \
   start_movel_service:=false start_initializer_service:=false \
+  start_servoj:=false start_go_home_service:=false \
   start_vision_target_server:=false
 
 # Robot initialization service only
 ros2 launch rokae_bringup dual_arm.launch.py \
   start_state_publisher:=false start_move_server:=false \
   start_movel_service:=false start_hand_service:=false \
+  start_servoj:=false start_go_home_service:=false \
   start_vision_target_server:=false
 
 # Vision trigger and target cache only
 ros2 launch rokae_bringup dual_arm.launch.py \
   start_state_publisher:=false start_move_server:=false \
   start_movel_service:=false start_hand_service:=false \
-  start_initializer_service:=false
+  start_initializer_service:=false start_servoj:=false \
+  start_go_home_service:=false
 ```
 
 The action names are:
@@ -101,6 +151,22 @@ The action names are:
 /left_arm/move_absj
 /right_arm/move_absj
 ```
+
+The realtime joint-position command topics are:
+
+```text
+/left_arm/servoj   rokae_interfaces/msg/ServoJ
+/right_arm/servoj  rokae_interfaces/msg/ServoJ
+/dual_arm/servoj   rokae_interfaces/msg/DualArmServoJ
+```
+
+Single-arm messages contain `enable` and seven joint positions in radians.
+The dual-arm message contains `enable` plus left and right seven-joint arrays.
+With `enable=true`, publish continuously at the configured 50 Hz and begin at
+the current `joint_states`; `enable=false` stops the session. A 0.10 s command
+watchdog, controller soft limits, a 0.02 rad per-frame step limit and the same
+per-arm command locks used by MoveAbsJ/MoveL protect the interface. The driver
+does not power on the arms automatically.
 
 The linear-motion services are:
 
@@ -133,6 +199,28 @@ The `op.cpp`-style initialization service is:
 /initialize_robots
 ```
 
+The fixed home-position services are:
+
+```text
+/left_arm/go_home
+/right_arm/go_home
+/dual_arm/go_home
+```
+
+They use `std_srvs/srv/Trigger` and MoveAbsJ. The configured joint targets are
+the left and right origin arrays marked in `cxl/moveabsj.cpp`. A request causes
+real robot motion, does not power on the arms, and shares the same per-arm
+command locks and runtime safety checks as the other motion interfaces.
+
+```bash
+ros2 service call /left_arm/go_home std_srvs/srv/Trigger
+ros2 service call /right_arm/go_home std_srvs/srv/Trigger
+ros2 service call /dual_arm/go_home std_srvs/srv/Trigger
+```
+
+These are empty `Trigger` requests. Joint targets are fixed in the driver
+configuration and are not supplied on the command line.
+
 One request initializes both arms in order: connect, select
 `NrtCommand`, select automatic mode, power on, then verify that the final
 power state is `on`. It does not send a motion command. It can be called
@@ -142,9 +230,9 @@ independently with:
 ros2 service call /initialize_robots std_srvs/srv/Trigger "{}"
 ```
 
-The initialization node uses the dedicated local addresses
-`192.168.0.22` and `192.168.2.22` from the
-`rokae_robot_initializer` section of `dual_arm.yaml`, matching `op.cpp`.
+The initialization node uses `192.168.4.10` and `192.168.2.10` from the
+`rokae_robot_initializer` section of `dual_arm.yaml`, matching the currently
+deployed `cxl/op.cpp`.
 
 They expose the `control_hand.cpp` commands `open`, `half`, `close`,
 `position`, `motors`/`joints`, `speed` and `pressure`. Position and speed
@@ -176,9 +264,24 @@ The state topics are:
 ```text
 /left_arm/joint_states
 /left_arm/tcp_pose
+/left_arm/jacobian
 /right_arm/joint_states
 /right_arm/tcp_pose
+/right_arm/jacobian
 ```
+
+Each Jacobian topic uses `std_msgs/msg/Float64MultiArray`. Its `data` field is
+the xCoreSDK row-major `6 x 7` flange Jacobian: rows are
+`vx, vy, vz, wx, wy, wz`, and columns are `joint_1 ... joint_7`. The layout
+dimensions are labelled `twist` (size 6, stride 42) and `joint` (size 7,
+stride 7). The matrix is expressed relative to each robot's base frame.
+
+`publish_jacobian` is enabled for both state-publisher instances in
+`dual_arm.yaml`. It can disable only the Jacobian publishers while leaving
+joint and TCP state publishing active. The publisher skips model computation
+when the topic has no subscribers. The launch argument
+`start_state_publisher:=false` instead disables the complete state publisher,
+including joint, TCP and Jacobian topics.
 
 Before the first motion test, use one arm, a small target delta, low speed, a
 clear workspace and an accessible E-stop. The values in
@@ -416,6 +519,22 @@ ros2 service call /bt_target_server/get_target \
 ```
 
 For the ArUco tool detector, start `aruco_tool_launch.py` separately and use:
+
+```bash
+# Reuse an existing /camera color/depth publisher (default).
+ros2 launch aruco_scanner aruco_tool_launch.py
+
+# Or start this workspace's configured RealSense camera. It publishes aligned
+# /camera/color/image_raw, /camera/depth/image_rect_raw and camera_info.
+ros2 launch aruco_scanner aruco_tool_launch.py start_camera:=true
+```
+
+The installed vision stack requires a NumPy 1.x version compatible with the
+NVIDIA PyTorch build and an OpenCV release that still supports NumPy 1.x. The
+tested versions on this computer are NumPy 1.26.4 and OpenCV 4.11.0; these
+constraints are recorded in `aruco_scanner/setup.py`.
+
+Use the following behavior-tree action after the detector is running:
 
 ```yaml
 - id: detect_tool
