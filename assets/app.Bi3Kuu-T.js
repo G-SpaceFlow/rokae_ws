@@ -1,22 +1,22 @@
-import { t as theme } from "./chunks/theme.Ca8Frvan.js";
-import { R as inBrowser, a2 as useUpdateHead, a3 as RouterSymbol, a4 as initData, a5 as dataSymbol, a6 as Content, a7 as ClientOnly, a8 as siteDataRef, a9 as createRouter, aa as pathToFile, ab as createSSRApp, d as defineComponent, u as useData, v as onMounted, s as watchEffect, ac as usePrefetch, ad as useCopyCode, ae as useCodeGroups, af as h } from "./chunks/framework.BnF0bU5u.js";
-function resolveThemeExtends(theme2) {
-  if (theme2.extends) {
-    const base = resolveThemeExtends(theme2.extends);
+import { R as RawTheme } from "./chunks/theme.BH9np85i.js";
+import { R as inBrowser, a3 as useUpdateHead, a4 as RouterSymbol, a5 as initData, a6 as dataSymbol, a7 as Content, a8 as ClientOnly, a9 as siteDataRef, aa as createRouter, ab as pathToFile, ac as createSSRApp, d as defineComponent, u as useData, v as onMounted, s as watchEffect, ad as usePrefetch, ae as useCopyCode, af as useCodeGroups, a2 as h } from "./chunks/framework.47_HgVV0.js";
+function resolveThemeExtends(theme) {
+  if (theme.extends) {
+    const base = resolveThemeExtends(theme.extends);
     return {
       ...base,
-      ...theme2,
+      ...theme,
       async enhanceApp(ctx) {
         if (base.enhanceApp)
           await base.enhanceApp(ctx);
-        if (theme2.enhanceApp)
-          await theme2.enhanceApp(ctx);
+        if (theme.enhanceApp)
+          await theme.enhanceApp(ctx);
       }
     };
   }
-  return theme2;
+  return theme;
 }
-const Theme = resolveThemeExtends(theme);
+const Theme = resolveThemeExtends(RawTheme);
 const VitePressApp = defineComponent({
   name: "VitePressApp",
   setup() {
