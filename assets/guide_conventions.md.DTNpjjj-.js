@@ -1,0 +1,13 @@
+import { _ as _export_sfc, o as openBlock, c as createElementBlock, ag as createStaticVNode } from "./chunks/framework.47_HgVV0.js";
+const __pageData = JSON.parse('{"title":"📐 单位与坐标系","description":"","frontmatter":{"title":"📐 单位与坐标系","outline":[2,4]},"headers":[],"relativePath":"guide/conventions.md","filePath":"guide/conventions.md","lastUpdated":null}');
+const _sfc_main = { name: "guide/conventions.md" };
+function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
+  return openBlock(), createElementBlock("div", null, [..._cache[0] || (_cache[0] = [
+    createStaticVNode('<h1 id="📐-单位与坐标系" tabindex="-1">📐 单位与坐标系 <a class="header-anchor" href="#📐-单位与坐标系" aria-label="Permalink to &quot;📐 单位与坐标系&quot;">​</a></h1><p><a href="/rokae_ws/ROS2_INTERFACE_REFERENCE">查看完整来源文档</a></p><h2 id="_3-1-手臂与关节名称" tabindex="-1">3.1 手臂与关节名称 <a class="header-anchor" href="#_3-1-手臂与关节名称" aria-label="Permalink to &quot;3.1 手臂与关节名称&quot;">​</a></h2><table tabindex="0"><thead><tr><th>机械臂</th><th>命名空间</th><th>关节名称</th></tr></thead><tbody><tr><td>左臂</td><td><code>/left_arm</code></td><td><code>left_joint_1</code> ... <code>left_joint_7</code></td></tr><tr><td>右臂</td><td><code>/right_arm</code></td><td><code>right_joint_1</code> ... <code>right_joint_7</code></td></tr></tbody></table><h2 id="_3-2-单位" tabindex="-1">3.2 单位 <a class="header-anchor" href="#_3-2-单位" aria-label="Permalink to &quot;3.2 单位&quot;">​</a></h2><table tabindex="0"><thead><tr><th>物理量</th><th>单位</th></tr></thead><tbody><tr><td>关节角、臂角、RPY</td><td>rad</td></tr><tr><td>关节速度</td><td>rad/s</td></tr><tr><td>笛卡尔位置</td><td>m</td></tr><tr><td>MoveL 线速度</td><td>mm/s</td></tr><tr><td>过渡区 <code>zone_mm</code></td><td>mm</td></tr><tr><td>时间</td><td>s，名称明确为 <code>_ms</code> 的参数除外</td></tr><tr><td>Jacobian 线速度行</td><td>m/s</td></tr><tr><td>Jacobian 角速度行</td><td>rad/s</td></tr></tbody></table><h2 id="_3-3-坐标系和姿态" tabindex="-1">3.3 坐标系和姿态 <a class="header-anchor" href="#_3-3-坐标系和姿态" aria-label="Permalink to &quot;3.3 坐标系和姿态&quot;">​</a></h2><ul><li>MoveL 的 TCP 位姿相对于机器人控制器配置的外部参考坐标系 <code>CoordinateType::endInRef</code>。</li><li><code>MoveL</code>、<code>MoveLRelative</code> 和 <code>MoveLTarget</code> 中的姿态使用 XYZ Euler RPY，单位 为 rad。</li><li><code>/left_arm/tcp_pose</code> 默认 <code>frame_id=left_external_ref</code>；右臂默认 <code>frame_id=right_external_ref</code>。</li><li>Jacobian 是 SDK 返回的法兰相对机器人基座的 Jacobian。它与 <code>tcp_pose</code> 的 TCP/外部参考坐标语义不同，使用前必须按具体控制算法确认工具和坐标变换。</li></ul>', 8)
+  ])]);
+}
+const conventions = /* @__PURE__ */ _export_sfc(_sfc_main, [["render", _sfc_render]]);
+export {
+  __pageData,
+  conventions as default
+};

@@ -1,4 +1,4 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/chunks/VPLocalSearchBox.DTmyCd5k.js","assets/chunks/framework.47_HgVV0.js"])))=>i.map(i=>d[i]);
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/chunks/VPLocalSearchBox.b18Zeowh.js","assets/chunks/framework.47_HgVV0.js"])))=>i.map(i=>d[i]);
 import { d as defineComponent, c as createElementBlock, r as renderSlot, n as normalizeClass, o as openBlock, a as createTextVNode, t as toDisplayString, b as createBlock, w as withCtx, T as Transition, e as createCommentVNode, _ as _export_sfc, u as useData$1, i as isExternal, f as treatAsHtml, g as withBase, h as computed, j as createBaseVNode, k as unref, l as isActive, m as useMediaQuery, p as ref, q as watch, s as watchEffect, v as onMounted, x as onUnmounted, y as watchPostEffect, z as onUpdated, A as getScrollOffset, F as Fragment, B as renderList, C as resolveComponent, D as onContentUpdated, E as createVNode, G as shallowRef, H as resolveDynamicComponent, I as EXTERNAL_URL_RE, J as useRoute, K as mergeProps, L as inject, M as useWindowSize, N as normalizeStyle, O as onKeyStroke, P as nextTick, Q as useWindowScroll, R as inBrowser, S as readonly, U as defineAsyncComponent, V as __vitePreload, W as useScrollLock, X as provide, Y as toHandlers, Z as withKeys, $ as onBeforeUnmount, a0 as withModifiers, a1 as useSlots, a2 as h } from "./framework.47_HgVV0.js";
 const _sfc_main$Y = /* @__PURE__ */ defineComponent({
   __name: "VPBadge",
@@ -85,8 +85,8 @@ function normalizeLink(link, addPath, path, addExt) {
 const _hoisted_1$I = { class: "NotFound" };
 const _hoisted_2$q = { class: "code" };
 const _hoisted_3$h = { class: "title" };
-const _hoisted_4$9 = { class: "quote" };
-const _hoisted_5$9 = { class: "action" };
+const _hoisted_4$8 = { class: "quote" };
+const _hoisted_5$8 = { class: "action" };
 const _hoisted_6$6 = ["href", "aria-label"];
 const _sfc_main$W = /* @__PURE__ */ defineComponent({
   __name: "NotFound",
@@ -99,8 +99,8 @@ const _sfc_main$W = /* @__PURE__ */ defineComponent({
         createBaseVNode("p", _hoisted_2$q, toDisplayString(((_a = unref(theme2).notFound) == null ? void 0 : _a.code) ?? "404"), 1),
         createBaseVNode("h1", _hoisted_3$h, toDisplayString(((_b = unref(theme2).notFound) == null ? void 0 : _b.title) ?? "PAGE NOT FOUND"), 1),
         _cache[0] || (_cache[0] = createBaseVNode("div", { class: "divider" }, null, -1)),
-        createBaseVNode("blockquote", _hoisted_4$9, toDisplayString(((_c = unref(theme2).notFound) == null ? void 0 : _c.quote) ?? "But if you don't change your direction, and if you keep looking, you may end up where you are heading."), 1),
-        createBaseVNode("div", _hoisted_5$9, [
+        createBaseVNode("blockquote", _hoisted_4$8, toDisplayString(((_c = unref(theme2).notFound) == null ? void 0 : _c.quote) ?? "But if you don't change your direction, and if you keep looking, you may end up where you are heading."), 1),
+        createBaseVNode("div", _hoisted_5$8, [
           createBaseVNode("a", {
             class: "link",
             href: unref(withBase)(unref(currentLang).link),
@@ -695,11 +695,11 @@ const _hoisted_3$g = {
   key: 0,
   class: "edit-link"
 };
-const _hoisted_4$8 = {
+const _hoisted_4$7 = {
   key: 1,
   class: "last-updated"
 };
-const _hoisted_5$8 = {
+const _hoisted_5$7 = {
   key: 1,
   class: "prev-next",
   "aria-labelledby": "doc-footer-aria-label"
@@ -741,11 +741,11 @@ const _sfc_main$P = /* @__PURE__ */ defineComponent({
               _: 1
             }, 8, ["href"])
           ])) : createCommentVNode("", true),
-          hasLastUpdated.value ? (openBlock(), createElementBlock("div", _hoisted_4$8, [
+          hasLastUpdated.value ? (openBlock(), createElementBlock("div", _hoisted_4$7, [
             createVNode(VPDocFooterLastUpdated)
           ])) : createCommentVNode("", true)
         ])) : createCommentVNode("", true),
-        ((_a = unref(control).prev) == null ? void 0 : _a.link) || ((_b = unref(control).next) == null ? void 0 : _b.link) ? (openBlock(), createElementBlock("nav", _hoisted_5$8, [
+        ((_a = unref(control).prev) == null ? void 0 : _a.link) || ((_b = unref(control).next) == null ? void 0 : _b.link) ? (openBlock(), createElementBlock("nav", _hoisted_5$7, [
           _cache[1] || (_cache[1] = createBaseVNode("span", {
             class: "visually-hidden",
             id: "doc-footer-aria-label"
@@ -803,8 +803,8 @@ const VPDocFooter = /* @__PURE__ */ _export_sfc(_sfc_main$P, [["__scopeId", "dat
 const _hoisted_1$B = { class: "container" };
 const _hoisted_2$m = { class: "aside-container" };
 const _hoisted_3$f = { class: "aside-content" };
-const _hoisted_4$7 = { class: "content" };
-const _hoisted_5$7 = { class: "content-container" };
+const _hoisted_4$6 = { class: "content" };
+const _hoisted_5$6 = { class: "content-container" };
 const _hoisted_6$4 = { class: "main" };
 const _sfc_main$O = /* @__PURE__ */ defineComponent({
   __name: "VPDoc",
@@ -853,8 +853,8 @@ const _sfc_main$O = /* @__PURE__ */ defineComponent({
               ])
             ])
           ], 2)) : createCommentVNode("", true),
-          createBaseVNode("div", _hoisted_4$7, [
-            createBaseVNode("div", _hoisted_5$7, [
+          createBaseVNode("div", _hoisted_4$6, [
+            createBaseVNode("div", _hoisted_5$6, [
               renderSlot(_ctx.$slots, "doc-before", {}, void 0, true),
               createBaseVNode("main", _hoisted_6$4, [
                 createVNode(_component_Content, {
@@ -953,8 +953,8 @@ const VPImage = /* @__PURE__ */ _export_sfc(_sfc_main$M, [["__scopeId", "data-v-
 const _hoisted_1$z = { class: "container" };
 const _hoisted_2$l = { class: "main" };
 const _hoisted_3$e = { class: "heading" };
-const _hoisted_4$6 = ["innerHTML"];
-const _hoisted_5$6 = ["innerHTML"];
+const _hoisted_4$5 = ["innerHTML"];
+const _hoisted_5$5 = ["innerHTML"];
 const _hoisted_6$3 = ["innerHTML"];
 const _hoisted_7$2 = {
   key: 0,
@@ -989,12 +989,12 @@ const _sfc_main$L = /* @__PURE__ */ defineComponent({
                   key: 0,
                   innerHTML: __props.name,
                   class: "name clip"
-                }, null, 8, _hoisted_4$6)) : createCommentVNode("", true),
+                }, null, 8, _hoisted_4$5)) : createCommentVNode("", true),
                 __props.text ? (openBlock(), createElementBlock("span", {
                   key: 1,
                   innerHTML: __props.text,
                   class: "text"
-                }, null, 8, _hoisted_5$6)) : createCommentVNode("", true)
+                }, null, 8, _hoisted_5$5)) : createCommentVNode("", true)
               ]),
               __props.tagline ? (openBlock(), createElementBlock("p", {
                 key: 0,
@@ -1081,8 +1081,8 @@ const _hoisted_2$k = {
   class: "icon"
 };
 const _hoisted_3$d = ["innerHTML"];
-const _hoisted_4$5 = ["innerHTML"];
-const _hoisted_5$5 = ["innerHTML"];
+const _hoisted_4$4 = ["innerHTML"];
+const _hoisted_5$4 = ["innerHTML"];
 const _hoisted_6$2 = {
   key: 4,
   class: "link-text"
@@ -1132,12 +1132,12 @@ const _sfc_main$J = /* @__PURE__ */ defineComponent({
             createBaseVNode("h2", {
               class: "title",
               innerHTML: __props.title
-            }, null, 8, _hoisted_4$5),
+            }, null, 8, _hoisted_4$4),
             __props.details ? (openBlock(), createElementBlock("p", {
               key: 3,
               class: "details",
               innerHTML: __props.details
-            }, null, 8, _hoisted_5$5)) : createCommentVNode("", true),
+            }, null, 8, _hoisted_5$4)) : createCommentVNode("", true),
             __props.linkText ? (openBlock(), createElementBlock("div", _hoisted_6$2, [
               createBaseVNode("p", _hoisted_7$1, [
                 createTextVNode(toDisplayString(__props.linkText) + " ", 1),
@@ -1831,11 +1831,11 @@ const _hoisted_2$b = {
   class: "text"
 };
 const _hoisted_3$7 = ["innerHTML"];
-const _hoisted_4$4 = {
+const _hoisted_4$3 = {
   key: 1,
   class: "vpi-more-horizontal icon"
 };
-const _hoisted_5$4 = { class: "menu" };
+const _hoisted_5$3 = { class: "menu" };
 const _sfc_main$t = /* @__PURE__ */ defineComponent({
   __name: "VPFlyout",
   props: {
@@ -1877,9 +1877,9 @@ const _sfc_main$t = /* @__PURE__ */ defineComponent({
               innerHTML: __props.button
             }, null, 8, _hoisted_3$7)) : createCommentVNode("", true),
             _cache[3] || (_cache[3] = createBaseVNode("span", { class: "vpi-chevron-down text-icon" }, null, -1))
-          ])) : (openBlock(), createElementBlock("span", _hoisted_4$4))
+          ])) : (openBlock(), createElementBlock("span", _hoisted_4$3))
         ], 8, _hoisted_1$n),
-        createBaseVNode("div", _hoisted_5$4, [
+        createBaseVNode("div", _hoisted_5$3, [
           createVNode(VPMenu, { items: __props.items }, {
             default: withCtx(() => [
               renderSlot(_ctx.$slots, "default", {}, void 0, true)
@@ -1964,8 +1964,8 @@ const _hoisted_3$6 = {
   key: 1,
   class: "group"
 };
-const _hoisted_4$3 = { class: "item appearance" };
-const _hoisted_5$3 = { class: "label" };
+const _hoisted_4$2 = { class: "item appearance" };
+const _hoisted_5$2 = { class: "label" };
 const _hoisted_6$1 = { class: "appearance-action" };
 const _hoisted_7 = {
   key: 2,
@@ -1997,8 +1997,8 @@ const _sfc_main$q = /* @__PURE__ */ defineComponent({
             }), 128))
           ])) : createCommentVNode("", true),
           unref(site).appearance && unref(site).appearance !== "force-dark" && unref(site).appearance !== "force-auto" ? (openBlock(), createElementBlock("div", _hoisted_3$6, [
-            createBaseVNode("div", _hoisted_4$3, [
-              createBaseVNode("p", _hoisted_5$3, toDisplayString(unref(theme2).darkModeSwitchLabel || "Appearance"), 1),
+            createBaseVNode("div", _hoisted_4$2, [
+              createBaseVNode("p", _hoisted_5$2, toDisplayString(unref(theme2).darkModeSwitchLabel || "Appearance"), 1),
               createBaseVNode("div", _hoisted_6$1, [
                 createVNode(VPSwitchAppearance)
               ])
@@ -2230,7 +2230,7 @@ const _hoisted_3$4 = {
 const _sfc_main$k = /* @__PURE__ */ defineComponent({
   __name: "VPNavBarSearch",
   setup(__props) {
-    const VPLocalSearchBox = defineAsyncComponent(() => __vitePreload(() => import("./VPLocalSearchBox.DTmyCd5k.js"), true ? __vite__mapDeps([0,1]) : void 0));
+    const VPLocalSearchBox = defineAsyncComponent(() => __vitePreload(() => import("./VPLocalSearchBox.b18Zeowh.js"), true ? __vite__mapDeps([0,1]) : void 0));
     const VPAlgoliaSearchBox = () => null;
     const { theme: theme2 } = useData();
     const loaded = ref(false);
@@ -2407,8 +2407,8 @@ const VPNavBarTranslations = /* @__PURE__ */ _export_sfc(_sfc_main$h, [["__scope
 const _hoisted_1$c = { class: "wrapper" };
 const _hoisted_2$5 = { class: "container" };
 const _hoisted_3$2 = { class: "title" };
-const _hoisted_4$2 = { class: "content" };
-const _hoisted_5$2 = { class: "content-body" };
+const _hoisted_4$1 = { class: "content" };
+const _hoisted_5$1 = { class: "content-body" };
 const _sfc_main$g = /* @__PURE__ */ defineComponent({
   __name: "VPNavBar",
   props: {
@@ -2446,8 +2446,8 @@ const _sfc_main$g = /* @__PURE__ */ defineComponent({
                 _: 3
               })
             ]),
-            createBaseVNode("div", _hoisted_4$2, [
-              createBaseVNode("div", _hoisted_5$2, [
+            createBaseVNode("div", _hoisted_4$1, [
+              createBaseVNode("div", _hoisted_5$1, [
                 renderSlot(_ctx.$slots, "nav-bar-content-before", {}, void 0, true),
                 createVNode(_sfc_main$k, { class: "search" }),
                 createVNode(VPNavBarMenu, { class: "menu" }),
@@ -2576,11 +2576,11 @@ const VPNavScreenMenuGroupSection = /* @__PURE__ */ _export_sfc(_sfc_main$c, [["
 const _hoisted_1$7 = ["aria-controls", "aria-expanded"];
 const _hoisted_2$2 = ["innerHTML"];
 const _hoisted_3$1 = ["id"];
-const _hoisted_4$1 = {
+const _hoisted_4 = {
   key: 0,
   class: "item"
 };
-const _hoisted_5$1 = {
+const _hoisted_5 = {
   key: 1,
   class: "item"
 };
@@ -2627,9 +2627,9 @@ const _sfc_main$b = /* @__PURE__ */ defineComponent({
             return openBlock(), createElementBlock(Fragment, {
               key: JSON.stringify(item)
             }, [
-              "link" in item ? (openBlock(), createElementBlock("div", _hoisted_4$1, [
+              "link" in item ? (openBlock(), createElementBlock("div", _hoisted_4, [
                 createVNode(VPNavScreenMenuGroupLink, { item }, null, 8, ["item"])
-              ])) : "component" in item ? (openBlock(), createElementBlock("div", _hoisted_5$1, [
+              ])) : "component" in item ? (openBlock(), createElementBlock("div", _hoisted_5, [
                 (openBlock(), createBlock(resolveDynamicComponent(item.component), mergeProps({ ref_for: true }, item.props, { "screen-menu": "" }), null, 16))
               ])) : (openBlock(), createElementBlock("div", _hoisted_6, [
                 createVNode(VPNavScreenMenuGroupSection, {
@@ -3220,123 +3220,59 @@ const theme = {
   }
 };
 const _hoisted_1 = {
-  class: "section-outline",
-  "aria-label": "当前功能子导航"
-};
-const _hoisted_2 = {
   key: 0,
-  class: "section-outline-scope"
+  class: "api-module-outline",
+  "aria-label": "本页导航"
 };
-const _hoisted_3 = { key: 1 };
-const _hoisted_4 = ["href", "aria-current"];
-const _hoisted_5 = {
-  key: 2,
-  class: "section-outline-empty"
-};
+const _hoisted_2 = { class: "api-outline-group" };
+const _hoisted_3 = ["href"];
 const _sfc_main = /* @__PURE__ */ defineComponent({
-  __name: "SectionOutline",
+  __name: "ApiOutline",
   setup(__props) {
-    const route = useRoute();
-    const items = ref([]);
-    const title = ref("本页导航");
-    const active2 = ref("");
-    let scope = null;
-    let headings = [];
-    function label(element) {
-      return (element.textContent || "").replace(/[\u200b#]/g, "").trim();
-    }
-    function decoratedLabel(element) {
-      const text = label(element);
-      if (/^[^\p{L}\p{N}]/u.test(text)) return text;
-      const icon = /Topics|消息|状态/.test(text) ? "📡" : /Services|接口/.test(text) ? "📦" : /Action|Goal|Feedback|Result/.test(text) ? "🎯" : /参数|约定|单位/.test(text) ? "⚙️" : /示例|启动|调用/.test(text) ? "▶️" : "📄";
-      return `${icon} ${text}`;
-    }
-    function level(element) {
-      return Number(element.tagName.slice(1));
-    }
-    function children(element) {
-      const start = headings.indexOf(element);
-      let end = start + 1;
-      while (end < headings.length && level(headings[end]) > level(element)) end++;
-      return headings.slice(start + 1, end);
-    }
-    function targetHeading(hash) {
-      let id;
-      try {
-        id = decodeURIComponent(hash.replace(/^#/, ""));
-      } catch {
-        return null;
-      }
-      if (!id) return null;
-      const target = document.getElementById(id);
-      if (!target) return null;
-      if (headings.includes(target)) return target;
-      return headings.find((el) => !!(target.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)) || null;
-    }
-    function render() {
-      var _a;
-      const list = scope ? children(scope) : headings.filter((el) => level(el) <= 3);
-      title.value = scope ? label(scope) : "本页导航";
-      const base = scope ? level(scope) + 1 : 2;
-      items.value = list.map((el) => ({ id: el.id, title: decoratedLabel(el), depth: level(el) - base }));
-      active2.value = ((_a = targetHeading(location.hash)) == null ? void 0 : _a.id) || "";
-    }
-    function fromHash() {
-      const target = targetHeading(location.hash);
-      if (target && (!scope || target !== scope && !children(scope).includes(target))) {
-        const index = headings.indexOf(target);
-        scope = headings.slice(0, index + 1).reverse().find((el) => level(el) === 2) || null;
-      }
-      render();
-    }
-    async function refresh() {
-      await nextTick();
-      headings = Array.from(document.querySelectorAll(".vp-doc h2[id], .vp-doc h3[id], .vp-doc h4[id]"));
-      scope = null;
-      fromHash();
-    }
-    function sidebarClick(event) {
-      var _a, _b;
-      const outlineLink = (_a = event.target) == null ? void 0 : _a.closest(".section-outline a");
-      if (outlineLink) active2.value = decodeURIComponent(outlineLink.hash.slice(1));
-      const link = (_b = event.target) == null ? void 0 : _b.closest(".VPSidebar a");
-      if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-      const url = new URL(link.href);
-      if (url.pathname !== location.pathname) return;
-      scope = targetHeading(url.hash);
-      render();
-    }
-    let stopWatch;
-    onMounted(() => {
-      refresh();
-      stopWatch = watch(() => route.path, refresh);
-      window.addEventListener("hashchange", fromHash);
-      document.addEventListener("click", sidebarClick);
-    });
-    onBeforeUnmount(() => {
-      stopWatch == null ? void 0 : stopWatch();
-      window.removeEventListener("hashchange", fromHash);
-      document.removeEventListener("click", sidebarClick);
-    });
+    const { page } = useData$1();
+    const groups = [
+      { title: "📦 Services", items: [
+        { title: "🦾 上肢运动服务", hash: "_8-movel-services" },
+        { title: "🔌 初始化与回原", hash: "_9-初始化与回原服务" },
+        { title: "🖐️ 灵巧手服务", hash: "_10-linker-hand-服务" },
+        { title: "📷 视觉目标服务", hash: "_14-上层视觉目标接口" }
+      ] },
+      { title: "📡 Topics", items: [
+        { title: "🦾 上肢状态话题", hash: "_5-状态-topics" },
+        { title: "⚡ 实时控制话题", hash: "_6-servoj-实时控制-topics" },
+        { title: "🚙 底盘桥接话题", hash: "_15-可选底盘桥接接口" }
+      ] },
+      { title: "🎯 Actions", items: [
+        { title: "🦾 上肢运动动作", hash: "_7-moveabsj-action" }
+      ] }
+    ];
     return (_ctx, _cache) => {
-      return openBlock(), createElementBlock("nav", _hoisted_1, [
-        _cache[0] || (_cache[0] = createBaseVNode("div", { class: "section-outline-label" }, "本页导航", -1)),
-        title.value !== "本页导航" ? (openBlock(), createElementBlock("div", _hoisted_2, toDisplayString(title.value), 1)) : createCommentVNode("", true),
-        items.value.length ? (openBlock(), createElementBlock("ul", _hoisted_3, [
-          (openBlock(true), createElementBlock(Fragment, null, renderList(items.value, (item) => {
-            return openBlock(), createElementBlock("li", {
-              key: item.id,
-              style: normalizeStyle({ paddingLeft: `${Math.max(0, item.depth) * 14}px` })
+      return unref(page).relativePath === "ROS2_INTERFACE_REFERENCE.md" ? (openBlock(), createElementBlock("nav", _hoisted_1, [
+        _cache[1] || (_cache[1] = createBaseVNode("strong", null, "本页导航", -1)),
+        createBaseVNode("ul", null, [
+          _cache[0] || (_cache[0] = createBaseVNode("li", null, [
+            createBaseVNode("a", { href: "#_2-api-快速查询" }, "📑 API 目录")
+          ], -1)),
+          (openBlock(), createElementBlock(Fragment, null, renderList(groups, (group) => {
+            return createBaseVNode("li", {
+              key: group.title
             }, [
-              createBaseVNode("a", {
-                href: `#${item.id}`,
-                class: normalizeClass({ active: active2.value === item.id }),
-                "aria-current": active2.value === item.id ? "location" : void 0
-              }, toDisplayString(item.title), 11, _hoisted_4)
-            ], 4);
-          }), 128))
-        ])) : (openBlock(), createElementBlock("p", _hoisted_5, "此功能暂无子章节"))
-      ]);
+              createBaseVNode("span", _hoisted_2, toDisplayString(group.title), 1),
+              createBaseVNode("ul", null, [
+                (openBlock(true), createElementBlock(Fragment, null, renderList(group.items, (item) => {
+                  return openBlock(), createElementBlock("li", {
+                    key: item.hash
+                  }, [
+                    createBaseVNode("a", {
+                      href: `#${item.hash}`
+                    }, toDisplayString(item.title), 9, _hoisted_3)
+                  ]);
+                }), 128))
+              ])
+            ]);
+          }), 64))
+        ])
+      ])) : createCommentVNode("", true);
     };
   }
 });
