@@ -1,9 +1,9 @@
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-import { V as __vitePreload, q as watch, ah as tryOnScopeDispose, h as computed, ai as toValue, aj as toArray, ak as unrefElement, al as notNullish, G as shallowRef, d as defineComponent, am as computedAsync, p as ref, an as useSessionStorage, ao as useLocalStorage, s as watchEffect, ap as watchDebounced, v as onMounted, P as nextTick, O as onKeyStroke, aq as useRouter, ar as useEventListener, W as useScrollLock, R as inBrowser, $ as onBeforeUnmount, o as openBlock, b as createBlock, j as createBaseVNode, a0 as withModifiers, k as unref, as as withDirectives, at as vModelText, au as isRef, c as createElementBlock, n as normalizeClass, e as createCommentVNode, B as renderList, F as Fragment, a as createTextVNode, t as toDisplayString, av as Teleport, aw as markRaw, ax as createApp, a6 as dataSymbol, ab as pathToFile, ay as escapeRegExp, _ as _export_sfc } from "./framework.BbW302T5.js";
-import { u as useData, c as createSearchTranslate } from "./theme.CAnWmXqR.js";
-const localSearchIndex = { "root": () => __vitePreload(() => import("./@localSearchIndexroot.Dw-t_TD_.js"), true ? [] : void 0) };
+import { V as __vitePreload, q as watch, ah as tryOnScopeDispose, h as computed, ai as toValue, aj as toArray, ak as unrefElement, al as notNullish, G as shallowRef, d as defineComponent, am as computedAsync, p as ref, an as useSessionStorage, ao as useLocalStorage, s as watchEffect, ap as watchDebounced, v as onMounted, P as nextTick, O as onKeyStroke, aq as useRouter, ar as useEventListener, W as useScrollLock, R as inBrowser, $ as onBeforeUnmount, o as openBlock, b as createBlock, j as createBaseVNode, a0 as withModifiers, k as unref, as as withDirectives, at as vModelText, au as isRef, c as createElementBlock, n as normalizeClass, e as createCommentVNode, B as renderList, F as Fragment, a as createTextVNode, t as toDisplayString, av as Teleport, aw as markRaw, ax as createApp, a5 as dataSymbol, aa as pathToFile, ay as escapeRegExp, _ as _export_sfc } from "./framework.BnF0bU5u.js";
+import { u as useData, c as createSearchTranslate } from "./theme.Ca8Frvan.js";
+const localSearchIndex = { "root": () => __vitePreload(() => import("./@localSearchIndexroot.CZG9vHYI.js"), true ? [] : void 0) };
 /*!
 * tabbable 6.5.0
 * @license MIT, https://github.com/focus-trap/tabbable/blob/master/LICENSE
@@ -5337,7 +5337,7 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
     };
   }
 });
-const VPLocalSearchBox = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-68e678c9"]]);
+const VPLocalSearchBox = /* @__PURE__ */ _export_sfc(_sfc_main, [["__scopeId", "data-v-9b966820"]]);
 export {
   VPLocalSearchBox as default
 };
