@@ -24,6 +24,22 @@
   padding-top: 5px;
   padding-bottom: 5px;
 }
+/* Replace the page-wide outline with a function-scoped outline. */
+.VPDocAsideOutline { display: none; }
+.section-outline {
+  border-left: 1px solid var(--vp-c-divider);
+  padding-left: 16px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  font-size: 13px;
+}
+.section-outline-label { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+.section-outline-scope { color: var(--vp-c-text-1); font-weight: 600; margin-bottom: 8px; }
+.section-outline ul { list-style: none; margin: 0; padding: 0; }
+.section-outline a { display: block; padding: 6px 0; line-height: 1.6; color: var(--vp-c-text-2); }
+.section-outline a:hover, .section-outline a.active { color: var(--vp-c-brand-1); }
+.section-outline a:focus-visible { outline: 2px solid var(--vp-c-brand-1); }
+.section-outline-empty { color: var(--vp-c-text-3); }
 .vp-doc h1 {
   padding: 24px 28px;
   background: var(--vp-c-bg-soft);
