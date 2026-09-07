@@ -4874,6 +4874,7 @@ html:not(.dark) .VPImage.dark[data-v-5a01b469] {
 .api-module-outline ul ul { padding-left: 16px; }
 .api-module-outline a, .api-outline-group { display: block; padding: 6px 0; color: var(--vp-c-text-2); }
 .api-outline-group { margin-top: 8px; font-weight: 600; }
+.api-count-note { margin-top: 14px; font-size: 12px; color: var(--vp-c-text-3); }
 .api-module-outline a:hover { color: var(--vp-c-brand-1); }
 .api-module-outline a:focus-visible { outline: 2px solid var(--vp-c-brand-1); }
 

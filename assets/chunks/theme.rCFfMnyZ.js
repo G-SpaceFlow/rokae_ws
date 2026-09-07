@@ -1,4 +1,4 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/chunks/VPLocalSearchBox.b18Zeowh.js","assets/chunks/framework.47_HgVV0.js"])))=>i.map(i=>d[i]);
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/chunks/VPLocalSearchBox.birLYFk7.js","assets/chunks/framework.47_HgVV0.js"])))=>i.map(i=>d[i]);
 import { d as defineComponent, c as createElementBlock, r as renderSlot, n as normalizeClass, o as openBlock, a as createTextVNode, t as toDisplayString, b as createBlock, w as withCtx, T as Transition, e as createCommentVNode, _ as _export_sfc, u as useData$1, i as isExternal, f as treatAsHtml, g as withBase, h as computed, j as createBaseVNode, k as unref, l as isActive, m as useMediaQuery, p as ref, q as watch, s as watchEffect, v as onMounted, x as onUnmounted, y as watchPostEffect, z as onUpdated, A as getScrollOffset, F as Fragment, B as renderList, C as resolveComponent, D as onContentUpdated, E as createVNode, G as shallowRef, H as resolveDynamicComponent, I as EXTERNAL_URL_RE, J as useRoute, K as mergeProps, L as inject, M as useWindowSize, N as normalizeStyle, O as onKeyStroke, P as nextTick, Q as useWindowScroll, R as inBrowser, S as readonly, U as defineAsyncComponent, V as __vitePreload, W as useScrollLock, X as provide, Y as toHandlers, Z as withKeys, $ as onBeforeUnmount, a0 as withModifiers, a1 as useSlots, a2 as h } from "./framework.47_HgVV0.js";
 const _sfc_main$Y = /* @__PURE__ */ defineComponent({
   __name: "VPBadge",
@@ -2230,7 +2230,7 @@ const _hoisted_3$4 = {
 const _sfc_main$k = /* @__PURE__ */ defineComponent({
   __name: "VPNavBarSearch",
   setup(__props) {
-    const VPLocalSearchBox = defineAsyncComponent(() => __vitePreload(() => import("./VPLocalSearchBox.b18Zeowh.js"), true ? __vite__mapDeps([0,1]) : void 0));
+    const VPLocalSearchBox = defineAsyncComponent(() => __vitePreload(() => import("./VPLocalSearchBox.birLYFk7.js"), true ? __vite__mapDeps([0,1]) : void 0));
     const VPAlgoliaSearchBox = () => null;
     const { theme: theme2 } = useData();
     const loaded = ref(false);
@@ -3230,20 +3230,21 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
   __name: "ApiOutline",
   setup(__props) {
     const { page } = useData$1();
+    const counts = computed(() => page.value.frontmatter.interfaceCounts || {});
     const groups = [
       { title: "📦 Services", items: [
-        { title: "🦾 上肢运动服务", hash: "_8-movel-services" },
-        { title: "🔌 初始化与回原", hash: "_9-初始化与回原服务" },
-        { title: "🖐️ 灵巧手服务", hash: "_10-linker-hand-服务" },
-        { title: "📷 视觉目标服务", hash: "_14-上层视觉目标接口" }
+        { title: "🦾 上肢运动服务", count: "motion", hash: "_8-movel-services" },
+        { title: "🔌 初始化与回原", count: "power", hash: "_9-初始化与回原服务" },
+        { title: "🖐️ 灵巧手服务", count: "hand", hash: "_10-linker-hand-服务" },
+        { title: "📷 视觉目标服务", count: "vision", hash: "_14-上层视觉目标接口" }
       ] },
       { title: "📡 Topics", items: [
-        { title: "🦾 上肢状态话题", hash: "_5-状态-topics" },
-        { title: "⚡ 实时控制话题", hash: "_6-servoj-实时控制-topics" },
-        { title: "🚙 底盘桥接话题", hash: "_15-可选底盘桥接接口" }
+        { title: "🦾 上肢状态话题", count: "state", hash: "_5-状态-topics" },
+        { title: "⚡ 实时控制话题", count: "servo", hash: "_6-servoj-实时控制-topics" },
+        { title: "🚙 底盘桥接话题", count: "chassis", hash: "_15-可选底盘桥接接口" }
       ] },
       { title: "🎯 Actions", items: [
-        { title: "🦾 上肢运动动作", hash: "_7-moveabsj-action" }
+        { title: "🦾 上肢运动动作", count: "action", hash: "_7-moveabsj-action" }
       ] }
     ];
     return (_ctx, _cache) => {
@@ -3265,13 +3266,14 @@ const _sfc_main = /* @__PURE__ */ defineComponent({
                   }, [
                     createBaseVNode("a", {
                       href: `#${item.hash}`
-                    }, toDisplayString(item.title), 9, _hoisted_3)
+                    }, toDisplayString(item.title) + "（" + toDisplayString(counts.value[item.count] ?? "—") + "）", 9, _hoisted_3)
                   ]);
                 }), 128))
               ])
             ]);
           }), 64))
-        ])
+        ]),
+        _cache[2] || (_cache[2] = createBaseVNode("p", { class: "api-count-note" }, "数量为本文收录的子接口数，非实时上线数。", -1))
       ])) : createCommentVNode("", true);
     };
   }
