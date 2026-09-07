@@ -11,7 +11,7 @@ Rokae ROS 2 开发指南 · Upperlimb · 更新于 2026-09-07
 > **当前状态：新轨迹接口仅完成定义，运动服务端尚未实现。**
 > 初始化上电服务与原 Python ServoJ 路径已在本地实现。本页不代表新增代码已发布或完成硬件验证。
 
-## 快速导航
+## 🧭 快速导航
 
 | 查阅内容 | 入口 |
 | --- | --- |
@@ -41,7 +41,7 @@ is_async 注释只写“是否同步运行”；下文明确规定本项目的�
 
 <a id="implementation-status"></a>
 
-## 实现状态
+## 📊 实现状态
 
 | 功能 | 本地状态 |
 | --- | --- |
@@ -57,7 +57,7 @@ is_async 注释只写“是否同步运行”；下文明确规定本项目的�
 
 <a id="joint-trajectory"></a>
 
-## Services · 关节轨迹
+## 🦾 Services · 关节轨迹
 
 ### JointTrajectory
 
@@ -140,7 +140,7 @@ float64[] positions
 
 <a id="initialize"></a>
 
-## Services · 初始化上电
+## 🔌 Services · 初始化上电
 
 ### Initialize
 
@@ -206,7 +206,7 @@ ros2 service call /aide/upperlimb/initialize/left_arm std_srvs/srv/Trigger '{}'
 
 <a id="python-client"></a>
 
-## 客户端配置
+## 🐍 客户端配置
 
 文件：`src/test/movej_by_path_client.py`。
 
@@ -230,7 +230,7 @@ source /home/niic/rokae_ws/install/local_setup.bash
 
 <a id="known-limits"></a>
 
-## 已知限制
+## 🛡️ 已知限制
 
 - 轨迹退出时一次 powerState=on 不能保证之后持续上电。
 - 已观察到退出检查通过、下一次运行却未上电的情况；根因尚未确认，
