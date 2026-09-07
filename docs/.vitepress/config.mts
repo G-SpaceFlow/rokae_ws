@@ -1,4 +1,4 @@
-import navigation from './navigation'
+import navigation from './functional-navigation'
 
 export default {
   lang: 'zh-CN',
