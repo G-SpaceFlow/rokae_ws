@@ -1,4 +1,7 @@
 import navigation from './functional-navigation'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { interfaceCounts } from './interface-counts.mjs'
 
 export default {
   lang: 'zh-CN',
@@ -7,6 +10,12 @@ export default {
   base: '/rokae_ws/',
   cleanUrls: true,
   lastUpdated: true,
+  transformPageData(pageData, { siteConfig }) {
+    if (pageData.relativePath === 'ROS2_INTERFACE_REFERENCE.md') {
+      pageData.frontmatter.interfaceCounts = interfaceCounts(
+        readFileSync(resolve(siteConfig.srcDir, pageData.relativePath), 'utf8'))
+    }
+  },
 
   themeConfig: {
     nav: [
