@@ -1,6 +1,31 @@
-# 关节轨迹与上电接口更新说明
+---
+title: 上肢轨迹与上电 API
+description: Rokae 左臂、右臂与双臂关节轨迹契约、初始化服务及使用说明
+outline: [2, 3]
+---
 
-更新日期：2026-09-07。
+# 上肢轨迹与上电 API
+
+Rokae ROS 2 开发指南 · Upperlimb · 更新于 2026-09-07
+
+> **当前状态：新轨迹接口仅完成定义，运动服务端尚未实现。**
+> 初始化上电服务与原 Python ServoJ 路径已在本地实现。本页不代表新增代码已发布或完成硬件验证。
+
+## 快速导航
+
+| 查阅内容 | 入口 |
+| --- | --- |
+| 哪些功能可以使用 | [实现状态](#implementation-status) |
+| 关节路径、总时间、同步/异步 | [JointTrajectory](#joint-trajectory) |
+| 左臂、右臂、双臂的取值与排列 | [控制模式](#arm-modes) |
+| 单臂 / 双臂初始化上电 | [Initialize](#initialize) |
+| 已上电时不重复切换模式 | [PowerOn](#power-on) |
+| Python 配置及环境加载 | [客户端配置](#python-client) |
+| 掉电、进程阻塞与测试边界 | [已知限制](#known-limits) |
+
+<details>
+<summary>参考来源与适配说明</summary>
+
 
 参考来源：[浙江人形机器人 ROS SDK — MoveJByPath](https://zj-humanoid.github.io/zj_humanoid_sdk_ros/zj_humanoid_types#movejbypath)。
 本文仅借鉴字段设计，不表示与该 SDK 二进制兼容。原文 MoveJByPath 的
@@ -10,7 +35,13 @@ is_async 注释只写“是否同步运行”；下文明确规定本项目的�
 本文记录本地开发工作区的接口设计和实现进度。本次文档提交不包含对应
 功能代码；仅拉取本次文档不能保证目标机器已安装下述新增接口。
 
-## 1. 实现状态
+页面组织参考 [Navi ROS API 接口文档](https://zj-humanoid.github.io/zj_humanoid_sdk_ros/api/zj_humanoid_ros_api.html#upperlimb-services)，采用接口分组、参数表和页内导航；本文描述的是 Rokae ROS 2 接口。
+
+</details>
+
+<a id="implementation-status"></a>
+
+## 实现状态
 
 | 功能 | 本地状态 |
 | --- | --- |
@@ -24,9 +55,40 @@ is_async 注释只写“是否同步运行”；下文明确规定本项目的�
 原 `MoveJByPath` 服务及 `movej_by_path_client.py` 执行路径保持兼容。
 不要把新服务类型生成成功理解为运动服务已经上线。
 
-## 2. 统一轨迹接口契约
+<a id="joint-trajectory"></a>
 
-类型：`rokae_interfaces/srv/JointTrajectory`。服务名称尚未绑定。
+## Services · 关节轨迹
+
+### JointTrajectory
+
+| 属性 | 说明 |
+| --- | --- |
+| 接口类型 | `rokae_interfaces/srv/JointTrajectory` |
+| 服务名称 | 尚未绑定 |
+| 实现阶段 | 类型已生成，**运动服务端待实现** |
+| 支持对象 | 左臂 / 右臂 / 双臂 |
+| 单位 | 关节角 `rad`；时间 `s` |
+| 是否隐含上电 | 否，需显式使用上电接口 |
+
+#### 请求参数
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `path` | `Joints[]` | 2..100 个关节角路点，每点含 `positions` |
+| `time` | `float64` | 总运动时间；大于 0 时覆盖 `timestamp` |
+| `timestamp` | `float64[]` | 逐点到达时间，仅 `time=0` 时使用 |
+| `is_async` | `bool` | `true` 异步提交；`false` 等待结束 |
+| `arm_type` | `int8` | `1` 左臂、`2` 右臂、`3` 双臂 |
+
+#### 返回结果
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `success` | `bool` | 请求 / 命令结果，不是独立的到位证明 |
+| `message` | `string` | 执行提示或失败原因 |
+
+<details>
+<summary>查看完整 .srv / .msg 定义</summary>
 
 ```text
 rokae_interfaces/Joints[] path
@@ -44,6 +106,10 @@ string message
 ```text
 float64[] positions
 ```
+
+</details>
+
+<a id="arm-modes"></a>
 
 ### 控制模式
 
@@ -72,9 +138,21 @@ float64[] positions
 - `success` 表示请求/命令结果，不能独立证明机械臂实际到位。
 - 异步任务的完成、失败、取消和状态查询机制需要随服务端另行实现。
 
-## 3. 初始化上电服务
+<a id="initialize"></a>
 
-下列接口均为 `std_srvs/srv/Trigger`，请求为空，响应为 success/message。
+## Services · 初始化上电
+
+### Initialize
+
+| 属性 | 说明 |
+| --- | --- |
+| 接口类型 | `std_srvs/srv/Trigger` |
+| 请求 | 空请求 `{}` |
+| 返回 | `bool success`、`string message` |
+| 本地状态 | 已实现并编译；本次未执行硬件测试 |
+| 行为 | 完整初始化并上电；不发送运动指令 |
+
+#### 服务地址
 
 | 服务名称 | 范围 |
 | --- | --- |
@@ -83,15 +161,28 @@ float64[] positions
 | `/aide/upperlimb/initialize/dual_arm` | 双臂 |
 | `/aide/upperlimb/initialize` | 原双臂兼容接口 |
 
-对应 SDK 示例 `op_single.cpp` 和 `op.cpp` 的顺序：读取机器人信息 →
-NrtCommand → automatic → setPowerState(true) → powerState 验证。
+#### 执行顺序
+
+对应 SDK 示例 `op_single.cpp` 和 `op.cpp`：
+
+```text
+控制占用及安全检查
+  → 读取机器人信息
+  → NrtCommand（非实时模式）
+  → automatic（自动模式）
+  → setPowerState(true)
+  → powerState 验证并返回
+```
+
 服务额外检查控制占用、空闲及电源安全状态，复用驱动连接，不启动独立 SDK 进程。
 不发送运动指令，不清除故障，不执行下电。
 
 双臂初始化先取得两臂控制锁。实际初始化时一臂失败仍尝试另一臂，
 响应分别报告结果，不自动下电回滚已成功的机械臂。
 
-以下命令会真实上电。确认现场安全后，仅调用需要的模式：
+#### 调用示例
+
+> **以下命令会真实上电。** 确认现场安全后，仅调用需要的模式。
 
 ```bash
 ros2 service call /aide/upperlimb/initialize/left_arm std_srvs/srv/Trigger '{}'
@@ -100,10 +191,22 @@ ros2 service call /aide/upperlimb/initialize/left_arm std_srvs/srv/Trigger '{}'
 右臂或双臂分别替换末尾为 `right_arm` 或 `dual_arm`。
 已实现这些服务的驱动需要重新编译、重启后才可用；不要并行启动多份驱动。
 
-另有 `/aide/upperlimb/power_on/left_arm` 和 `right_arm`：已上电时直接返回，
-不重新设置模式。它们与完整 initialize 顺序不同。
+<a id="power-on"></a>
 
-## 4. 现有 Python 轨迹配置
+### PowerOn
+
+| 属性 | 说明 |
+| --- | --- |
+| 接口类型 | `std_srvs/srv/Trigger` |
+| 左臂地址 | `/aide/upperlimb/power_on/left_arm` |
+| 右臂地址 | `/aide/upperlimb/power_on/right_arm` |
+| 已上电时 | 直接返回，不重新设置模式 |
+| 与 Initialize 的区别 | Initialize 执行完整初始化顺序，即使已经上电 |
+| 使用位置 | Python 的 `POWER_ON_BEFORE_MOTION` 分支 |
+
+<a id="python-client"></a>
+
+## 客户端配置
 
 文件：`src/test/movej_by_path_client.py`。
 
@@ -125,7 +228,9 @@ source /opt/ros/humble/setup.bash
 source /home/niic/rokae_ws/install/local_setup.bash
 ```
 
-## 5. 已知问题与验证边界
+<a id="known-limits"></a>
+
+## 已知限制
 
 - 轨迹退出时一次 powerState=on 不能保证之后持续上电。
 - 已观察到退出检查通过、下一次运行却未上电的情况；根因尚未确认，
