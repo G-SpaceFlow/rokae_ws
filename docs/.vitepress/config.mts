@@ -1,3 +1,8 @@
+import navigation from './functional-navigation'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { interfaceCounts } from './interface-counts.mjs'
+
 export default {
   lang: 'zh-CN',
   title: 'Rokae ROS 2 开发指南',
@@ -5,6 +10,12 @@ export default {
   base: '/rokae_ws/',
   cleanUrls: true,
   lastUpdated: true,
+  transformPageData(pageData, { siteConfig }) {
+    if (pageData.relativePath === 'ROS2_INTERFACE_REFERENCE.md') {
+      pageData.frontmatter.interfaceCounts = interfaceCounts(
+        readFileSync(resolve(siteConfig.srcDir, pageData.relativePath), 'utf8'))
+    }
+  },
 
   themeConfig: {
     nav: [
@@ -44,24 +55,32 @@ export default {
             link: '/ROS2_INTERFACE_REFERENCE#_2-2-servoj-实时控制-topics-3',
           },
           {
-            text: 'Actions（2）',
-            link: '/ROS2_INTERFACE_REFERENCE#_2-3-上肢运动-actions-2',
+            text: 'ServoL Topics（10）',
+            link: '/ROS2_INTERFACE_REFERENCE#_2-3-servol-实时控制-topics-10',
           },
           {
-            text: 'Services（14）',
-            link: '/ROS2_INTERFACE_REFERENCE#_2-4-底层控制-services-14',
+            text: 'Actions（2）',
+            link: '/ROS2_INTERFACE_REFERENCE#_2-4-上肢运动-actions-2',
+          },
+          {
+            text: 'Services（26）',
+            link: '/ROS2_INTERFACE_REFERENCE#_2-5-底层控制-services-26',
           },
           {
             text: '状态数据详解',
             link: '/ROS2_INTERFACE_REFERENCE#_5-状态-topics',
           },
           {
-            text: 'ServoJ',
-            link: '/ROS2_INTERFACE_REFERENCE#_6-servoj-实时控制-topics',
+            text: 'ServoJ 与 ServoL',
+            link: '/ROS2_INTERFACE_REFERENCE#_6-servoj-与-servol-实时控制-topics',
           },
           {
             text: 'MoveAbsJ',
             link: '/ROS2_INTERFACE_REFERENCE#_7-moveabsj-action',
+          },
+          {
+            text: 'MoveJ 路径服务',
+            link: '/ROS2_INTERFACE_REFERENCE#_7-6-movej-by-path-service',
           },
           {
             text: 'MoveL',
@@ -74,6 +93,10 @@ export default {
           {
             text: '灵巧手',
             link: '/ROS2_INTERFACE_REFERENCE#_10-linker-hand-服务',
+          },
+          {
+            text: 'FK / IK 运动学',
+            link: '/ROS2_INTERFACE_REFERENCE#_18-fk-ik-运动学服务',
           },
         ],
       },
@@ -144,5 +167,6 @@ export default {
     socialLinks: [
       { icon: 'github', link: 'https://github.com/G-SpaceFlow/rokae_ws' },
     ],
+    ...navigation,
   },
 }

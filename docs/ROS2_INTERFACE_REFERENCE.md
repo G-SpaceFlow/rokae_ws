@@ -3,7 +3,7 @@
 > 文档状态：当前工作区实现
 > ROS 版本：ROS 2 Humble
 > SDK：xCoreSDK v0.7.1.ar_6
-> 最后核对：2026-09-04
+> 最后核对：2026-09-08
 
 ## 1. 文档范围
 
@@ -20,9 +20,11 @@ bringup 中启动的视觉目标服务和可选底盘桥接接口。
   └── 机械臂客户端
           ↓ ROS 2
 ros_dual_arm_driver
+  ├── FK / IK Services
   ├── MoveAbsJ Action
   ├── MoveL Services
   ├── ServoJ Realtime Topics
+  ├── ServoL Realtime Topics
   ├── State Topics
   ├── Initialization Service
   └── Linker Hand Services
@@ -30,8 +32,9 @@ ros_dual_arm_driver
 左臂 ArRobot                 右臂 ArRobot
 ```
 
-当前驱动同时提供非实时 Move 接口和 ServoJ 实时关节位置流接口。`ServoL`、
-阻抗和力矩控制尚未作为 ROS 接口发布，参见[未实现接口](#_13-未实现接口)。
+当前驱动同时提供非实时 Move、FK/IK 运动学计算、ServoJ 实时关节位置流和
+ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS 接口发布，参见
+[未实现接口](#_13-未实现接口)。
 
 ## 2. API 快速查询
 
@@ -40,8 +43,9 @@ ros_dual_arm_driver
 
 - [上肢状态 Topics（6）](#_2-1-上肢状态-topics-6)
 - [ServoJ 实时控制 Topics（3）](#_2-2-servoj-实时控制-topics-3)
-- [上肢运动 Actions（2）](#_2-3-上肢运动-actions-2)
-- [底层控制 Services（14）](#_2-4-底层控制-services-14)
+- [ServoL 实时控制 Topics（10）](#_2-3-servol-实时控制-topics-10)
+- [上肢运动 Actions（2）](#_2-4-上肢运动-actions-2)
+- [底层控制 Services（26）](#_2-5-底层控制-services-26)
 - [上层视觉目标接口](#_14-上层视觉目标接口)
 - [可选底盘桥接接口](#_15-可选底盘桥接接口)
 
@@ -51,7 +55,7 @@ ros_dual_arm_driver
 
 | 字段 | 值 |
 | --- | --- |
-| Topic Name | `/left_arm/joint_states` |
+| Topic Name | `/aide/upperlimb/joint_states/left_arm` |
 | Type | `sensor_msgs/msg/JointState` |
 | Direction | Publish |
 | Description | 发布左臂七个关节的当前位置 |
@@ -61,7 +65,7 @@ ros_dual_arm_driver
 
 | 字段 | 值 |
 | --- | --- |
-| Topic Name | `/right_arm/joint_states` |
+| Topic Name | `/aide/upperlimb/joint_states/right_arm` |
 | Type | `sensor_msgs/msg/JointState` |
 | Direction | Publish |
 | Description | 发布右臂七个关节的当前位置 |
@@ -71,7 +75,7 @@ ros_dual_arm_driver
 
 | 字段 | 值 |
 | --- | --- |
-| Topic Name | `/left_arm/tcp_pose` |
+| Topic Name | `/aide/upperlimb/tcp_pose/left_arm` |
 | Type | `geometry_msgs/msg/PoseStamped` |
 | Direction | Publish |
 | Description | 发布左臂当前 TCP 位姿 |
@@ -81,7 +85,7 @@ ros_dual_arm_driver
 
 | 字段 | 值 |
 | --- | --- |
-| Topic Name | `/right_arm/tcp_pose` |
+| Topic Name | `/aide/upperlimb/tcp_pose/right_arm` |
 | Type | `geometry_msgs/msg/PoseStamped` |
 | Direction | Publish |
 | Description | 发布右臂当前 TCP 位姿 |
@@ -91,7 +95,7 @@ ros_dual_arm_driver
 
 | 字段 | 值 |
 | --- | --- |
-| Topic Name | `/left_arm/jacobian` |
+| Topic Name | `/aide/upperlimb/jacobian/left_arm` |
 | Type | `std_msgs/msg/Float64MultiArray` |
 | Direction | Publish |
 | Description | 发布左臂当前位置的运动 Jacobian |
@@ -101,7 +105,7 @@ ros_dual_arm_driver
 
 | 字段 | 值 |
 | --- | --- |
-| Topic Name | `/right_arm/jacobian` |
+| Topic Name | `/aide/upperlimb/jacobian/right_arm` |
 | Type | `std_msgs/msg/Float64MultiArray` |
 | Direction | Publish |
 | Description | 发布右臂当前位置的运动 Jacobian |
@@ -113,7 +117,7 @@ ros_dual_arm_driver
 
 | 字段 | 值 |
 | --- | --- |
-| Topic Name | `/left_arm/servoj` |
+| Topic Name | `/aide/upperlimb/servoj/left_arm` |
 | Type | `rokae_interfaces/msg/ServoJ` |
 | Direction | Subscribe |
 | Description | 左臂实时关节空间位置控制 |
@@ -123,7 +127,7 @@ ros_dual_arm_driver
 
 | 字段 | 值 |
 | --- | --- |
-| Topic Name | `/right_arm/servoj` |
+| Topic Name | `/aide/upperlimb/servoj/right_arm` |
 | Type | `rokae_interfaces/msg/ServoJ` |
 | Direction | Subscribe |
 | Description | 右臂实时关节空间位置控制 |
@@ -133,19 +137,121 @@ ros_dual_arm_driver
 
 | 字段 | 值 |
 | --- | --- |
-| Topic Name | `/dual_arm/servoj` |
+| Topic Name | `/aide/upperlimb/servoj/dual_arm` |
 | Type | `rokae_interfaces/msg/DualArmServoJ` |
 | Direction | Subscribe |
 | Description | 双臂同周期实时关节空间位置控制 |
 | Note | 单帧包含左右各七个关节目标；启动时同时取得双臂控制锁 |
 
-### 2.3 上肢运动 Actions（2）
+### 2.3 ServoL 实时控制 Topics（10）
+
+#### 1. servol/left_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/servol/left_arm` |
+| Type | `geometry_msgs/msg/Pose` |
+| Direction | Subscribe |
+| Description | 左臂实时笛卡尔 TCP 位姿目标 |
+| Note | 目标位于外部参考系；位置 m、姿态四元数；默认 100 Hz |
+
+#### 2. servol/right_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/servol/right_arm` |
+| Type | `geometry_msgs/msg/Pose` |
+| Direction | Subscribe |
+| Description | 右臂实时笛卡尔 TCP 位姿目标 |
+| Note | 目标位于外部参考系；位置 m、姿态四元数；默认 100 Hz |
+
+#### 3. servol/dual_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/servol/dual_arm` |
+| Type | `rokae_interfaces/msg/DualArmServoL` |
+| Direction | Subscribe |
+| Description | 双臂同周期实时笛卡尔 TCP 位姿目标 |
+| Note | 单帧携带左右臂目标；同时取得双臂控制锁 |
+
+#### 4. servol/stop
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/servol/stop` |
+| Type | `std_msgs/msg/Bool` |
+| Direction | Subscribe |
+| Description | 停止所有 ServoL 模式 |
+| Note | 发布 `true` 生效 |
+
+#### 5. servol/stop/left_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/servol/stop/left_arm` |
+| Type | `std_msgs/msg/Bool` |
+| Direction | Subscribe |
+| Description | 停止左臂 ServoL 模式 |
+| Note | 发布 `true` 生效 |
+
+#### 6. servol/stop/right_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/servol/stop/right_arm` |
+| Type | `std_msgs/msg/Bool` |
+| Direction | Subscribe |
+| Description | 停止右臂 ServoL 模式 |
+| Note | 发布 `true` 生效 |
+
+#### 7. servol/stop/dual_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/servol/stop/dual_arm` |
+| Type | `std_msgs/msg/Bool` |
+| Direction | Subscribe |
+| Description | 停止双臂 ServoL 模式 |
+| Note | 发布 `true` 生效 |
+
+#### 8. servol/command_pose/left_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/servol/command_pose/left_arm` |
+| Type | `geometry_msgs/msg/PoseStamped` |
+| Direction | Publish |
+| Description | 发布驱动实际生成的左臂 EndInRef 命令位姿 |
+| Note | 这是命令状态，不是机械臂实测反馈 |
+
+#### 9. servol/command_pose/right_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/servol/command_pose/right_arm` |
+| Type | `geometry_msgs/msg/PoseStamped` |
+| Direction | Publish |
+| Description | 发布驱动实际生成的右臂 EndInRef 命令位姿 |
+| Note | 这是命令状态，不是机械臂实测反馈 |
+
+#### 10. servol/status
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/servol/status` |
+| Type | `std_msgs/msg/String` |
+| Direction | Publish |
+| Description | 发布 ServoL 会话阶段、停止原因和 SDK 错误 |
+| Note | 诊断信息，不作为实时控制输入 |
+
+### 2.4 上肢运动 Actions（2）
 
 #### 1. move_absj/left_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Action Name | `/left_arm/move_absj` |
+| Action Name | `/aide/upperlimb/move_absj/left_arm` |
 | Type | `control_msgs/action/FollowJointTrajectory` |
 | Direction | Action Server |
 | Description | 左臂非实时关节空间点到点运动 |
@@ -155,162 +261,295 @@ ros_dual_arm_driver
 
 | 字段 | 值 |
 | --- | --- |
-| Action Name | `/right_arm/move_absj` |
+| Action Name | `/aide/upperlimb/move_absj/right_arm` |
 | Type | `control_msgs/action/FollowJointTrajectory` |
 | Direction | Action Server |
 | Description | 右臂非实时关节空间点到点运动 |
 | Note | 只接受一个七关节位置点；支持反馈、取消、超时与结果检查 |
 
-### 2.4 底层控制 Services（14）
+### 2.5 底层控制 Services（26）
 
-#### 1. initialize_robots
+#### 1. initialize
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/initialize_robots` |
+| Service Name | `/aide/upperlimb/initialize` |
 | Type | `std_srvs/srv/Trigger` |
 | Direction | Service Server |
 | Description | 初始化左右臂并验证上电状态 |
 | Note | 同时占用双臂；不发送运动命令 |
 
-#### 2. move_l/left_arm
+#### 2. movej_by_path/left_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/left_arm/move_l` |
+| Service Name | `/aide/upperlimb/movej_by_path/left_arm` |
+| Type | `rokae_interfaces/srv/MoveJByPath` |
+| Direction | Service Server |
+| Description | 左臂多轨迹点关节空间运动 |
+| Note | 请求携带 2 至 100 个七关节路点；使用 SDK 队列一次执行 |
+
+#### 3. movej_by_path/right_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/movej_by_path/right_arm` |
+| Type | `rokae_interfaces/srv/MoveJByPath` |
+| Direction | Service Server |
+| Description | 右臂多轨迹点关节空间运动 |
+| Note | 请求携带 2 至 100 个七关节路点；使用 SDK 队列一次执行 |
+
+#### 4. movej_by_path/dual_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/movej_by_path/dual_arm` |
+| Type | `rokae_interfaces/srv/MoveJByPath` |
+| Direction | Service Server |
+| Description | 双臂同步多轨迹点关节空间运动 |
+| Note | 左右路径点数必须相同；同时取得双臂控制锁 |
+
+#### 5. move_l/left_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/move_l/left_arm` |
 | Type | `rokae_interfaces/srv/MoveL` |
 | Direction | Service Server |
 | Description | 左臂绝对 TCP 直线运动 |
 | Note | 显式接收 `[x,y,z,rx,ry,rz]` 和七轴臂角；阻塞至完成或失败 |
 
-#### 3. move_l/right_arm
+#### 6. move_l/right_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/right_arm/move_l` |
+| Service Name | `/aide/upperlimb/move_l/right_arm` |
 | Type | `rokae_interfaces/srv/MoveL` |
 | Direction | Service Server |
 | Description | 右臂绝对 TCP 直线运动 |
 | Note | 显式接收 `[x,y,z,rx,ry,rz]` 和七轴臂角；阻塞至完成或失败 |
 
-#### 4. move_l_relative/left_arm
+#### 7. move_l_relative/left_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/left_arm/move_l_relative` |
+| Service Name | `/aide/upperlimb/move_l_relative/left_arm` |
 | Type | `rokae_interfaces/srv/MoveLRelative` |
 | Direction | Service Server |
 | Description | 左臂相对 TCP 直线运动 |
 | Note | 位移相对于外部参考系；保留当前臂角、构型和未覆盖姿态轴 |
 
-#### 5. move_l_relative/right_arm
+#### 8. move_l_relative/right_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/right_arm/move_l_relative` |
+| Service Name | `/aide/upperlimb/move_l_relative/right_arm` |
 | Type | `rokae_interfaces/srv/MoveLRelative` |
 | Direction | Service Server |
 | Description | 右臂相对 TCP 直线运动 |
 | Note | 位移相对于外部参考系；保留当前臂角、构型和未覆盖姿态轴 |
 
-#### 6. move_l_target/left_arm
+#### 9. move_l_target/left_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/left_arm/move_l_target` |
+| Service Name | `/aide/upperlimb/move_l_target/left_arm` |
 | Type | `rokae_interfaces/srv/MoveLTarget` |
 | Direction | Service Server |
 | Description | 左臂构型保持的绝对目标 MoveL |
 | Note | 主要供视觉使用；保留控制器当前臂角、构型和外部轴 |
 
-#### 7. move_l_target/right_arm
+#### 10. move_l_target/right_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/right_arm/move_l_target` |
+| Service Name | `/aide/upperlimb/move_l_target/right_arm` |
 | Type | `rokae_interfaces/srv/MoveLTarget` |
 | Direction | Service Server |
 | Description | 右臂构型保持的绝对目标 MoveL |
 | Note | 主要供视觉使用；保留控制器当前臂角、构型和外部轴 |
 
-#### 8. get_cartesian_state/left_arm
+#### 11. get_cartesian_state/left_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/left_arm/get_cartesian_state` |
+| Service Name | `/aide/upperlimb/get_cartesian_state/left_arm` |
 | Type | `rokae_interfaces/srv/GetCartesianState` |
 | Direction | Service Server |
 | Description | 查询左臂当前 TCP 位姿 |
 | Note | 返回 `[x,y,z,rx,ry,rz]`；运动控制锁被占用时查询失败 |
 
-#### 9. get_cartesian_state/right_arm
+#### 12. get_cartesian_state/right_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/right_arm/get_cartesian_state` |
+| Service Name | `/aide/upperlimb/get_cartesian_state/right_arm` |
 | Type | `rokae_interfaces/srv/GetCartesianState` |
 | Direction | Service Server |
 | Description | 查询右臂当前 TCP 位姿 |
 | Note | 返回 `[x,y,z,rx,ry,rz]`；运动控制锁被占用时查询失败 |
 
-#### 10. control_hand/left_arm
+#### 13. control_hand/left_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/left_arm/control_hand` |
+| Service Name | `/aide/upperlimb/control_hand/left_arm` |
 | Type | `rokae_interfaces/srv/ControlHand` |
 | Direction | Service Server |
 | Description | 通过左臂末端 CAN 控制左灵巧手 |
 | Note | 支持开、半开、闭合、六电机位置、速度和压力读取 |
 
-#### 11. control_hand/right_arm
+#### 14. control_hand/right_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/right_arm/control_hand` |
+| Service Name | `/aide/upperlimb/control_hand/right_arm` |
 | Type | `rokae_interfaces/srv/ControlHand` |
 | Direction | Service Server |
 | Description | 通过右臂末端 CAN 控制右灵巧手 |
 | Note | 支持开、半开、闭合、六电机位置、速度和压力读取 |
 
-#### 12. go_home/left_arm
+#### 15. go_home/left_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/left_arm/go_home` |
+| Service Name | `/aide/upperlimb/go_home/left_arm` |
 | Type | `std_srvs/srv/Trigger` |
 | Direction | Service Server |
 | Description | 左臂回到配置的原点关节位置 |
 | Note | 使用 MoveAbsJ；不会自动上电；执行期间独占左臂 |
 
-#### 13. go_home/right_arm
+#### 16. go_home/right_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/right_arm/go_home` |
+| Service Name | `/aide/upperlimb/go_home/right_arm` |
 | Type | `std_srvs/srv/Trigger` |
 | Direction | Service Server |
 | Description | 右臂回到配置的原点关节位置 |
 | Note | 使用 MoveAbsJ；不会自动上电；执行期间独占右臂 |
 
-#### 14. go_home/dual_arm
+#### 17. go_home/dual_arm
 
 | 字段 | 值 |
 | --- | --- |
-| Service Name | `/dual_arm/go_home` |
+| Service Name | `/aide/upperlimb/go_home/dual_arm` |
 | Type | `std_srvs/srv/Trigger` |
 | Direction | Service Server |
 | Description | 左右臂分别回到各自原点 |
 | Note | 同时取得双臂控制锁；任一侧失败会停止两侧 |
 
+#### 18. initialize/left_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/initialize/left_arm` |
+| Type | `std_srvs/srv/Trigger` |
+| Direction | Service Server |
+| Description | 完整初始化并上电左臂 |
+| Note | 不发送运动指令 |
+
+#### 19. initialize/right_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/initialize/right_arm` |
+| Type | `std_srvs/srv/Trigger` |
+| Direction | Service Server |
+| Description | 完整初始化并上电右臂 |
+| Note | 不发送运动指令 |
+
+#### 20. initialize/dual_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/initialize/dual_arm` |
+| Type | `std_srvs/srv/Trigger` |
+| Direction | Service Server |
+| Description | 完整初始化并上电双臂 |
+| Note | 与无目标后缀的兼容接口行为一致 |
+
+#### 21. power_on/left_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/power_on/left_arm` |
+| Type | `std_srvs/srv/Trigger` |
+| Direction | Service Server |
+| Description | 按需给左臂上电 |
+| Note | 已上电时直接成功返回，避免重复切换模式 |
+
+#### 22. power_on/right_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/power_on/right_arm` |
+| Type | `std_srvs/srv/Trigger` |
+| Direction | Service Server |
+| Description | 按需给右臂上电 |
+| Note | 已上电时直接成功返回，避免重复切换模式 |
+
+#### 23. fk/left_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/fk/left_arm` |
+| Type | `rokae_interfaces/srv/ForwardKinematics` |
+| Direction | Service Server |
+| Description | 根据左臂七关节角计算 TCP 位姿 |
+| Note | 只计算，不上电、不运动 |
+
+#### 24. fk/right_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/fk/right_arm` |
+| Type | `rokae_interfaces/srv/ForwardKinematics` |
+| Direction | Service Server |
+| Description | 根据右臂七关节角计算 TCP 位姿 |
+| Note | 只计算，不上电、不运动 |
+
+#### 25. ik/left_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/ik/left_arm` |
+| Type | `rokae_interfaces/srv/InverseKinematics` |
+| Direction | Service Server |
+| Description | 根据左臂 TCP 位姿计算七关节角 |
+| Note | SDK 结果经 FK 回算校验；只计算，不运动 |
+
+#### 26. ik/right_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/ik/right_arm` |
+| Type | `rokae_interfaces/srv/InverseKinematics` |
+| Direction | Service Server |
+| Description | 根据右臂 TCP 位姿计算七关节角 |
+| Note | SDK 结果经 FK 回算校验；只计算，不运动 |
+
 ## 3. 约定
 
 ### 3.1 手臂与关节名称
 
-| 机械臂 | 命名空间 | 关节名称 |
+所有上肢 ROS 接口采用统一格式：
+
+```text
+/aide/upperlimb/<function>/<target>
+```
+
+- `aide`：机器人名称。
+- `upperlimb`：上肢子系统。
+- `function`：接口功能，例如 `joint_states`、`servoj`、`move_l`。
+- `target`：`left_arm`、`right_arm` 或 `dual_arm`。
+- 作用于整个上肢且无需区分目标的接口可省略 `target`，例如
+  `/aide/upperlimb/initialize`。
+
+| 机械臂 | 接口目标后缀 | 关节名称 |
 | --- | --- | --- |
-| 左臂 | `/left_arm` | `left_joint_1` ... `left_joint_7` |
-| 右臂 | `/right_arm` | `right_joint_1` ... `right_joint_7` |
+| 左臂 | `/aide/upperlimb/.../left_arm` | `left_joint_1` ... `left_joint_7` |
+| 右臂 | `/aide/upperlimb/.../right_arm` | `right_joint_1` ... `right_joint_7` |
 
 ### 3.2 单位
 
@@ -331,7 +570,7 @@ ros_dual_arm_driver
   `CoordinateType::endInRef`。
 - `MoveL`、`MoveLRelative` 和 `MoveLTarget` 中的姿态使用 XYZ Euler RPY，单位
   为 rad。
-- `/left_arm/tcp_pose` 默认 `frame_id=left_external_ref`；右臂默认
+- `/aide/upperlimb/tcp_pose/left_arm` 默认 `frame_id=left_external_ref`；右臂默认
   `frame_id=right_external_ref`。
 - Jacobian 是 SDK 返回的法兰相对机器人基座的 Jacobian。它与 `tcp_pose` 的
   TCP/外部参考坐标语义不同，使用前必须按具体控制算法确认工具和坐标变换。
@@ -350,7 +589,7 @@ ros2 launch rokae_bringup dual_arm.launch.py
 启动驱动不会自动上电，也不会发送运动或灵巧手命令。运动前显式调用：
 
 ```bash
-ros2 service call /initialize_robots std_srvs/srv/Trigger "{}"
+ros2 service call /aide/upperlimb/initialize std_srvs/srv/Trigger "{}"
 ```
 
 ### 4.2 Launch 开关
@@ -364,7 +603,10 @@ ros2 service call /initialize_robots std_srvs/srv/Trigger "{}"
 | `start_hand_service` | `true` | 灵巧手服务 |
 | `start_initializer_service` | `true` | 双臂初始化服务 |
 | `start_go_home_service` | `true` | 左、右和双臂回原服务 |
+| `start_kinematics_service` | `true` | 左、右臂 FK/IK 计算服务 |
 | `start_servoj` | `true` | 左、右和双臂 ServoJ 订阅接口 |
+| `start_servol` | `true` | 左、右和双臂 ServoL 订阅接口 |
+| `start_movej_by_path_service` | `true` | 左、右和双臂 MoveJ 路径服务 |
 | `start_vision_target_server` | `true` | 视觉目标缓存服务 |
 | `start_chassis_navigation` | `false` | Seer 底盘桥接 |
 
@@ -395,7 +637,7 @@ ros2 node list
 查看数据：
 
 ```bash
-ros2 topic echo /left_arm/joint_states
+ros2 topic echo /aide/upperlimb/joint_states/left_arm
 ```
 
 ### 5.2 `tcp_pose`
@@ -407,7 +649,7 @@ ros2 topic echo /left_arm/joint_states
 - `header.frame_id`：对应手臂配置的外部参考坐标系名称。
 
 ```bash
-ros2 topic echo /right_arm/tcp_pose
+ros2 topic echo /aide/upperlimb/tcp_pose/right_arm
 ```
 
 ### 5.3 `jacobian`
@@ -432,10 +674,10 @@ ros2 topic echo /right_arm/tcp_pose
 Jacobian 计算。
 
 ```bash
-ros2 topic echo /left_arm/jacobian --once
+ros2 topic echo /aide/upperlimb/jacobian/left_arm --once
 ```
 
-## 6. ServoJ 实时控制 Topics
+## 6. ServoJ 与 ServoL 实时控制 Topics
 
 ### 6.1 消息结构
 
@@ -471,7 +713,7 @@ ROS 订阅回调只保存最新目标，驱动线程按照 `period_s` 固定周�
   `max_command_step_rad`。
 - 每个目标必须位于控制器软限位以内，并保留 `soft_limit_margin_rad` 余量。
 - 超过 `command_timeout_s` 没有收到新目标时，驱动会停止实时模式。
-- 驱动不会自动上电；开始前必须显式调用 `/initialize_robots`。
+- 驱动不会自动上电；开始前必须显式调用 `/aide/upperlimb/initialize`。
 
 QoS 为 `KeepLast(1) + best_effort + volatile`，防止旧目标在队列中累积。
 
@@ -481,10 +723,10 @@ QoS 为 `KeepLast(1) + best_effort + volatile`，防止旧目标在队列中累�
 `joint_states` 开始，以不超过 `max_command_step_rad` 的小步长更新：
 
 ```bash
-ros2 topic pub -r 50 /left_arm/servoj rokae_interfaces/msg/ServoJ \
+ros2 topic pub -r 100 /aide/upperlimb/servoj/left_arm rokae_interfaces/msg/ServoJ \
   "{enable: true, positions: [J1, J2, J3, J4, J5, J6, J7]}"
 
-ros2 topic pub -r 50 /dual_arm/servoj \
+ros2 topic pub -r 100 /aide/upperlimb/servoj/dual_arm \
   rokae_interfaces/msg/DualArmServoJ \
   "{enable: true, left_positions: [L1, L2, L3, L4, L5, L6, L7], \
 right_positions: [R1, R2, R3, R4, R5, R6, R7]}"
@@ -493,19 +735,58 @@ right_positions: [R1, R2, R3, R4, R5, R6, R7]}"
 显式停止：
 
 ```bash
-ros2 topic pub --once /left_arm/servoj rokae_interfaces/msg/ServoJ \
+ros2 topic pub --once /aide/upperlimb/servoj/left_arm rokae_interfaces/msg/ServoJ \
   "{enable: false, positions: [0, 0, 0, 0, 0, 0, 0]}"
 ```
 
 停止持续发布也会在默认 0.10 s 后触发看门狗停止。
+
+### 6.4 ServoL 消息与坐标系
+
+单臂输入使用 `geometry_msgs/msg/Pose`，双臂输入使用
+`rokae_interfaces/msg/DualArmServoL`：
+
+```text
+geometry_msgs/Pose left_pose
+geometry_msgs/Pose right_pose
+```
+
+输入是 TCP 相对当前外部参考系的绝对目标位姿，位置单位 m，姿态使用单位
+四元数。驱动按照 Pico 遥操示例的方式读取启动锚点、`baseFrame` 和当前
+`toolset`，把 EndInRef TCP 目标转换成 SDK 需要的 FlanInBase 后下发。
+
+### 6.5 ServoL 工作方式与安全约束
+
+- 左臂、右臂和双臂是三个互斥会话模式；双臂模式同时取得两侧控制锁。
+- ROS 回调只更新最新绝对目标，SDK 控制线程默认以 100 Hz 执行。
+- 首个目标先与当前 TCP 锚点对齐，再按平移和旋转单周期步长限制逼近目标。
+- 超过目标跳变、软限位、状态超时、ROS 看门狗或周期延迟限制会停止会话。
+- `command_pose/*` 是驱动生成的命令轨迹，不是机械臂实测反馈；实际 TCP 反馈
+  应读取 `/aide/upperlimb/tcp_pose/{target}`。
+- ServoL 不会自动上电，启动前必须显式完成对应机械臂初始化。
+
+QoS 为 `KeepLast(1) + best_effort + volatile`，避免实时目标在 DDS 队列中累积。
+
+### 6.6 ServoL 发布与停止示例
+
+以下只展示消息格式。真实机械臂运行前必须确认 TCP、工具、外部参考系、负载、
+碰撞阈值和目标可达性，并从当前位姿开始小步发送：
+
+```bash
+ros2 topic pub -r 100 /aide/upperlimb/servol/left_arm geometry_msgs/msg/Pose \
+  "{position: {x: X, y: Y, z: Z}, orientation: {x: QX, y: QY, z: QZ, w: QW}}"
+
+ros2 topic pub --once /aide/upperlimb/servol/stop/left_arm std_msgs/msg/Bool \
+  "{data: true}"
+```
 
 ## 7. MoveAbsJ Action
 
 ### 7.1 接口
 
 ```text
-/left_arm/move_absj
-/right_arm/move_absj
+/aide/upperlimb/move_absj/left_arm
+/aide/upperlimb/move_absj/right_arm
 Type: control_msgs/action/FollowJointTrajectory
 ```
 
@@ -544,12 +825,55 @@ Type: control_msgs/action/FollowJointTrajectory
 ### 7.5 调用示例
 
 ```bash
-ros2 action send_goal --feedback /left_arm/move_absj \
+ros2 action send_goal --feedback /aide/upperlimb/move_absj/left_arm \
   control_msgs/action/FollowJointTrajectory \
   "{trajectory: {joint_names: [left_joint_1, left_joint_2, left_joint_3, left_joint_4, left_joint_5, left_joint_6, left_joint_7], points: [{positions: [0.0, -1.0, 1.2, 0.0, 0.6, 0.0, 0.0]}]}}"
 ```
 
 目标值必须替换为现场验证过的安全位置。
+
+### 7.6 MoveJ By Path Service
+
+```text
+/aide/upperlimb/movej_by_path/left_arm
+/aide/upperlimb/movej_by_path/right_arm
+/aide/upperlimb/movej_by_path/dual_arm
+Type: rokae_interfaces/srv/MoveJByPath
+```
+
+服务请求中的路径是展平的一维数组，每 7 个数为一个关节路点，顺序为
+`joint_1 ... joint_7`，单位 rad：
+
+```text
+单臂：joint_positions       = [q1..q7, q1..q7, ...]
+双臂：left_joint_positions  = [q1..q7, q1..q7, ...]
+      right_joint_positions = [q1..q7, q1..q7, ...]
+```
+
+单臂和双臂均要求 2 至 100 个路点；双臂左右路点数量必须相同。速度、关节
+速度比例、过渡半径和超时由 `rokae_movej_by_path_service` 参数统一设置，当前
+默认值见 [11.8 MoveJ By Path 参数](#_11-8-movej-by-path-参数)。
+
+平滑策略分两层：服务拒绝非有限值、软限位越界和相邻路点过大的关节跳变；SDK
+再通过一次 `moveAppend(vector<MoveAbsJCommand>)` 进行整条路径规划。`zone_mm > 0`
+时控制器对相邻路点做 blending，保证速度连续；`zone_mm = 0` 时每个路点精确
+停靠，适合调试但会产生明显停顿。服务不会循环调用单点 MoveAbsJ，因此不会在
+路点之间人为插入 ROS 调度延迟。
+
+```bash
+# 左臂三点路径示例（请替换为现场确认的安全角度）
+ros2 service call /aide/upperlimb/movej_by_path/left_arm \
+  rokae_interfaces/srv/MoveJByPath \
+  "{joint_positions: [0.0, -1.0, 1.0, 0.0, 0.5, 0.0, 0.0, 0.1, -0.9, 1.1, 0.0, 0.5, 0.0, 0.0]}"
+
+# 双臂路径必须一一对应、点数相同
+ros2 service call /aide/upperlimb/movej_by_path/dual_arm \
+  rokae_interfaces/srv/MoveJByPath \
+  "{left_joint_positions: [...], right_joint_positions: [...] }"
+```
+
+服务执行期间独占对应机械臂控制锁；双臂服务同时取得两侧锁。机器人必须已
+初始化、上电且处于空闲状态，服务不会自动上电。
 
 ## 8. MoveL Services
 
@@ -559,8 +883,8 @@ ros2 action send_goal --feedback /left_arm/move_absj \
 ### 8.1 绝对 MoveL
 
 ```text
-/left_arm/move_l
-/right_arm/move_l
+/aide/upperlimb/move_l/left_arm
+/aide/upperlimb/move_l/right_arm
 Type: rokae_interfaces/srv/MoveL
 ```
 
@@ -577,15 +901,15 @@ Type: rokae_interfaces/srv/MoveL
 `CartesianPosition` 并设置 `hasElbow=true`。
 
 ```bash
-ros2 service call /right_arm/move_l rokae_interfaces/srv/MoveL \
+ros2 service call /aide/upperlimb/move_l/right_arm rokae_interfaces/srv/MoveL \
   "{pose: [0.280941, -0.314533, -0.489353, -2.761879, 0.340152, -0.746153], elbow: 0.009431, speed_mm_s: 50.0, zone_mm: 0.0}"
 ```
 
 ### 8.2 相对 MoveL
 
 ```text
-/left_arm/move_l_relative
-/right_arm/move_l_relative
+/aide/upperlimb/move_l_relative/left_arm
+/aide/upperlimb/move_l_relative/right_arm
 Type: rokae_interfaces/srv/MoveLRelative
 ```
 
@@ -601,7 +925,7 @@ Type: rokae_interfaces/srv/MoveLRelative
 叠加位移并按选择覆盖姿态。
 
 ```bash
-ros2 service call /left_arm/move_l_relative \
+ros2 service call /aide/upperlimb/move_l_relative/left_arm \
   rokae_interfaces/srv/MoveLRelative \
   "{translation: [0.0, 0.0, 0.01], orientation_override: [false, false, false], orientation_rpy: [0.0, 0.0, 0.0], speed_mm_s: 20.0, zone_mm: 0.0}"
 ```
@@ -609,8 +933,8 @@ ros2 service call /left_arm/move_l_relative \
 ### 8.3 构型保持 MoveL
 
 ```text
-/left_arm/move_l_target
-/right_arm/move_l_target
+/aide/upperlimb/move_l_target/left_arm
+/aide/upperlimb/move_l_target/right_arm
 Type: rokae_interfaces/srv/MoveLTarget
 ```
 
@@ -628,8 +952,8 @@ Type: rokae_interfaces/srv/MoveLTarget
 ### 8.4 读取笛卡尔状态
 
 ```text
-/left_arm/get_cartesian_state
-/right_arm/get_cartesian_state
+/aide/upperlimb/get_cartesian_state/left_arm
+/aide/upperlimb/get_cartesian_state/right_arm
 Type: rokae_interfaces/srv/GetCartesianState
 ```
 
@@ -642,28 +966,36 @@ Type: rokae_interfaces/srv/GetCartesianState
 ### 9.1 初始化
 
 ```text
-/initialize_robots
+/aide/upperlimb/initialize
+/aide/upperlimb/initialize/left_arm
+/aide/upperlimb/initialize/right_arm
+/aide/upperlimb/initialize/dual_arm
+/aide/upperlimb/power_on/left_arm
+/aide/upperlimb/power_on/right_arm
 Type: std_srvs/srv/Trigger
 ```
 
-一次请求同时取得左右臂控制锁，然后依次执行：
+`initialize/left_arm` 和 `initialize/right_arm` 分别处理单臂；`initialize` 与
+`initialize/dual_arm` 同时取得左右臂控制锁。完整初始化依次执行：
 
 ```text
 检查连接 → NrtCommand → automatic → power on → 验证 PowerState::on
 ```
 
-它不发送运动命令。任一手臂正在执行 MoveAbsJ 或 MoveL 时，请求会被拒绝。
+它不发送运动命令。任一手臂正在执行其他控制任务时，对应请求会被拒绝。
+`power_on/{target}` 会先检查当前电源状态；已经上电时直接成功返回，避免重复
+切换控制模式，否则执行对应单臂的完整初始化上电流程。
 
 ```bash
-ros2 service call /initialize_robots std_srvs/srv/Trigger "{}"
+ros2 service call /aide/upperlimb/initialize std_srvs/srv/Trigger "{}"
 ```
 
 ### 9.2 回原
 
 ```text
-/left_arm/go_home
-/right_arm/go_home
-/dual_arm/go_home
+/aide/upperlimb/go_home/left_arm
+/aide/upperlimb/go_home/right_arm
+/aide/upperlimb/go_home/dual_arm
 Type: std_srvs/srv/Trigger
 ```
 
@@ -679,9 +1011,9 @@ right: [1.7121,      -1.570796327, -1.570796327, 0, 0, 0, 0]
 速度监控、软限位或到位检查失败时，双臂服务会对两侧执行 `moveReset()`。
 
 ```bash
-ros2 service call /left_arm/go_home std_srvs/srv/Trigger
-ros2 service call /right_arm/go_home std_srvs/srv/Trigger
-ros2 service call /dual_arm/go_home std_srvs/srv/Trigger
+ros2 service call /aide/upperlimb/go_home/left_arm std_srvs/srv/Trigger
+ros2 service call /aide/upperlimb/go_home/right_arm std_srvs/srv/Trigger
+ros2 service call /aide/upperlimb/go_home/dual_arm std_srvs/srv/Trigger
 ```
 
 `Trigger` 是固定的空请求类型，不接收关节角；服务内部直接使用上面的原点。
@@ -692,8 +1024,8 @@ ros2 service call /dual_arm/go_home std_srvs/srv/Trigger
 ## 10. Linker Hand 服务
 
 ```text
-/left_arm/control_hand
-/right_arm/control_hand
+/aide/upperlimb/control_hand/left_arm
+/aide/upperlimb/control_hand/right_arm
 Type: rokae_interfaces/srv/ControlHand
 ```
 
@@ -727,7 +1059,7 @@ Type: rokae_interfaces/srv/ControlHand
 | `data` | 原始 CAN 回复字节 |
 
 ```bash
-ros2 service call /left_arm/control_hand \
+ros2 service call /aide/upperlimb/control_hand/left_arm \
   rokae_interfaces/srv/ControlHand \
   "{command: motors, values: [255, 160, 69, 69, 69, 69]}"
 ```
@@ -802,8 +1134,8 @@ ros2 service call /left_arm/control_hand \
 
 | 参数 | 当前值 | 驱动约束 | 说明 |
 | --- | ---: | ---: | --- |
-| `period_s` | 0.02 | `[0.001,0.1]` | SDK 固定下发周期，默认 50 Hz |
-| `lookahead_s` | 0.02 | `[period_s,1.0]` | SDK ServoJ 前瞻时间 |
+| `period_s` | 0.01 | `[0.001,0.1]` | SDK 固定下发周期，默认 100 Hz |
+| `lookahead_s` | 0.01 | `[period_s,1.0]` | SDK ServoJ 前瞻时间 |
 | `gain` | 0.0 | `[0,1000]` | SDK ServoJ 控制增益 |
 | `command_timeout_s` | 0.10 | `[2*period_s,2.0]` | ROS 目标断流看门狗 |
 | `max_command_step_rad` | 0.02 | `(0,0.3]` | 首帧和相邻帧单关节最大变化 |
@@ -824,6 +1156,42 @@ ros2 service call /left_arm/control_hand \
 | `max_joint_speed_rad_s` | 0.40 | 连续两次超限即停止 |
 | `goal_tolerance_rad` | 0.01 | 最大到位误差 |
 
+### 11.8 MoveJ By Path 参数
+
+| 参数 | 当前值 | 有效范围 | 说明 |
+| --- | ---: | --- | --- |
+| `speed_mm_s` | 80.0 | `(0,4000]` | SDK 路径速度参数 |
+| `joint_speed_scale` | 0.10 | `[0.01,1.0]` | 关节速度比例 |
+| `zone_mm` | 5.0 | `[0,200]` | 路点 blending 半径；0 为精确停点 |
+| `timeout_s` | 120.0 | `[1,600]` | 整条路径执行超时 |
+| `soft_limit_margin_rad` | 0.08 | `[0,0.30]` | 路点与软限位的最小余量 |
+| `max_waypoint_delta_rad` | 0.35 | `(0,pi]` | 当前点/相邻路点单关节最大跳变 |
+| `goal_tolerance_rad` | 0.02 | `(0,0.20]` | 最终路点最大关节误差 |
+
+### 11.9 ServoL 参数
+
+| 参数 | 当前值 | 说明 |
+| --- | ---: | --- |
+| `period_s` | 0.01 | SDK 下发周期，100 Hz |
+| `lookahead_s` | 0.01 | SDK 前瞻时间 |
+| `command_timeout_s` | 0.10 | ROS 目标断流看门狗 |
+| `state_timeout_s` | 0.10 | 实时关节状态超时 |
+| `max_cycle_lateness_s` | 0.04 | 控制周期最大允许延迟 |
+| `max_translation_step_m` | 0.0005 | 单周期最大 TCP 平移步长 |
+| `max_rotation_step_rad` | 0.0043633231 | 单周期最大姿态步长，约 0.25° |
+| `max_target_jump_m` | 0.10 | ROS 相邻目标最大平移跳变 |
+| `max_target_jump_rad` | 0.7853981634 | ROS 相邻目标最大姿态跳变 |
+| `soft_limit_margin_rad` | 0.08 | 关节软限位余量 |
+| `initial_alignment_timeout_s` | 2.0 | 首目标与当前锚点对齐超时 |
+| `rt_network_tolerance_percent` | 20 | SDK 实时网络容差百分比 |
+
+### 11.10 FK/IK 参数
+
+| 参数 | 当前值 | 说明 |
+| --- | ---: | --- |
+| `ik_verify_position_tolerance_m` | 0.0001 | IK 经 FK 回算的位置误差上限 |
+| `ik_verify_orientation_tolerance_rad` | 0.001 | IK 经 FK 回算的姿态误差上限 |
+
 ## 12. 控制权、并发和状态语义
 
 统一驱动进程只创建两个 `ArRobot`：左、右臂各一个。每只手臂有两类内部锁：
@@ -833,7 +1201,7 @@ commandMutex：控制任务级独占
 sdkMutex：单次 SDK 函数调用串行化
 ```
 
-`MoveAbsJ`、所有 `MoveL`、ServoJ、回原和初始化使用 `commandMutex`。同一只
+`MoveAbsJ`、所有 `MoveL`、ServoJ、ServoL、回原和初始化使用 `commandMutex`。同一只
 手臂一次只允许一个控制任务，左右臂可以并行；双臂 ServoJ 和双臂回原同时
 取得两侧锁。状态发布和灵巧手只短暂使用 `sdkMutex`。
 
@@ -854,17 +1222,16 @@ state、实际运动状态、控制模式和错误，而不是只发布一个 `m
 
 | 能力 | 当前状态 |
 | --- | --- |
-| ServoL / 实时笛卡尔位置控制 | 未接入 |
 | 关节阻抗 | 未接入 |
 | 笛卡尔阻抗 | 未接入 |
 | 实时力矩控制 | 未接入 |
 | SDK 拖动模式 | 未接入 |
 | MoveJ、MoveC、MoveCF、MoveSP | 未接入 |
-| `/left_arm/control_state`、`/right_arm/control_state` | 尚未定义 |
+| `/aide/upperlimb/control_state/left_arm`、`/aide/upperlimb/control_state/right_arm` | 尚未定义 |
 | 对外控制权获取/释放服务 | 尚未定义 |
 
-后续实时接口也应像 ServoJ 一样作为独占的会话式接口接入统一驱动，不能把
-连续 ServoL 目标简单转换成多次阻塞 MoveL 调用。
+后续实时接口也应像 ServoJ、ServoL 一样作为独占的会话式接口接入统一驱动，
+不能把连续实时目标简单转换成多次阻塞运动调用。
 
 ## 14. 上层视觉目标接口
 
@@ -936,8 +1303,9 @@ state、实际运动状态、控制模式和错误，而不是只发布一个 `m
 4. MoveAbsJ 前确认关节顺序、弧度单位和控制器软限位。
 5. MoveL 前确认外部参考坐标系、TCP、工具负载、臂角和姿态约定。
 6. ServoJ 必须从当前关节反馈开始连续发送，不能直接发布远离当前位置的目标。
-7. 不要同时运行绕过 ROS 驱动的 SDK 控制程序。
-8. YAML 中的限制值只是软件请求边界，不能替代控制器安全配置、碰撞检测或
+7. ServoL 输入是 TCP 相对外部参考系位姿；驱动转换到法兰相对基坐标系后发送。
+8. 不要同时运行绕过 ROS 驱动的 SDK 控制程序。
+9. YAML 中的限制值只是软件请求边界，不能替代控制器安全配置、碰撞检测或
    风险评估。
 
 ## 17. 实现位置
@@ -946,9 +1314,13 @@ state、实际运动状态、控制模式和错误，而不是只发布一个 `m
 | --- | --- |
 | 共享 SDK 对象与互斥 | `src/rokae_driver/include/rokae_driver/shared_arm_hardware.hpp` |
 | 统一进程入口 | `src/rokae_driver/src/ros_dual_arm_driver.cpp` |
+| 接口命名常量 | `src/rokae_driver/include/rokae_driver/interface_names.hpp` |
 | MoveAbsJ | `src/rokae_driver/src/ros_moveabsj_action_server.cpp` |
+| MoveJ By Path | `src/rokae_driver/src/ros_movej_by_path_service.cpp` |
 | MoveL 与笛卡尔状态 | `src/rokae_driver/src/ros_movel_service.cpp` |
 | ServoJ 实时关节控制 | `src/rokae_driver/src/ros_servoj_subscriber.cpp` |
+| ServoL 实时笛卡尔控制 | `src/rokae_driver/src/ros_servol_subscriber.cpp` |
+| FK/IK 运动学服务 | `src/rokae_driver/src/ros_kinematics_service.cpp` |
 | 单臂与双臂回原 | `src/rokae_driver/src/ros_go_home_service.cpp` |
 | 状态与 Jacobian | `src/rokae_driver/src/ros_pos_publisher.cpp` |
 | 初始化 | `src/rokae_driver/src/ros_robot_initializer_service.cpp` |
@@ -958,3 +1330,70 @@ state、实际运动状态、控制模式和错误，而不是只发布一个 `m
 | Launch | `src/rokae_bringup/launch/dual_arm.launch.py` |
 
 接口字段或行为发生变化时，应同时更新本文件、对应 `.msg`/`.srv` 注释和部署参数。
+
+## 18. FK/IK 运动学服务
+
+运动学服务分别提供左臂和右臂接口：
+
+```text
+/aide/upperlimb/fk/left_arm
+/aide/upperlimb/fk/right_arm
+/aide/upperlimb/ik/left_arm
+/aide/upperlimb/ik/right_arm
+```
+
+服务使用 xCoreSDK `xMateModel<7>` 和控制器当前 `toolset`。位姿是 TCP 相对当前
+外部参考坐标系的结果。服务只计算，不自动上电，也不发送运动指令；但需要驱动
+已连接对应机器人，以读取机型模型和活动工具/工件坐标配置。
+
+### 18.1 ForwardKinematics
+
+类型：`rokae_interfaces/srv/ForwardKinematics`。
+
+| 方向 | 字段 | 类型 | 单位/说明 |
+| --- | --- | --- | --- |
+| 请求 | `joints` | `float64[7]` | J1…J7，rad |
+| 响应 | `success` | `bool` | SDK 计算是否成功 |
+| 响应 | `message` | `string` | 结果或错误原因 |
+| 响应 | `pose` | `geometry_msgs/Pose` | TCP 位姿，位置 m、姿态四元数 |
+| 响应 | `elbow` | `float64` | 七轴臂角，rad |
+| 响应 | `has_elbow` | `bool` | 臂角是否有效 |
+| 响应 | `configuration` | `int32[]` | SDK 关节构型数据 |
+
+```bash
+ros2 service call /aide/upperlimb/fk/left_arm \
+  rokae_interfaces/srv/ForwardKinematics \
+  "{joints: [J1, J2, J3, J4, J5, J6, J7]}"
+```
+
+### 18.2 InverseKinematics
+
+类型：`rokae_interfaces/srv/InverseKinematics`。
+
+| 方向 | 字段 | 类型 | 单位/说明 |
+| --- | --- | --- | --- |
+| 请求 | `pose` | `geometry_msgs/Pose` | TCP 目标，外部参考系 |
+| 请求 | `use_elbow` | `bool` | 是否使用指定臂角约束七轴选解 |
+| 请求 | `elbow` | `float64` | 指定臂角，rad |
+| 响应 | `joints` | `float64[7]` | IK 结果，rad |
+| 响应 | `solved_pose` | `geometry_msgs/Pose` | IK 结果经 FK 回算的位姿 |
+| 响应 | `position_error_m` | `float64` | FK 回算位置误差，m |
+| 响应 | `orientation_error_rad` | `float64` | FK 回算姿态误差，rad |
+| 响应 | `success/message` | `bool/string` | 校验结果或错误原因 |
+
+IK 返回前会用同一个模型和 `toolset` 执行 FK 回算；误差超过 11.10 节配置的
+阈值时返回失败。七轴机械臂通常存在多组逆解，因此输出关节角不保证与生成目标
+位姿时使用的原始关节角完全相同。
+
+### 18.3 Python 联合测试
+
+测试程序先执行 FK，再把输出位姿传给 IK，最后对 IK 结果再次执行 FK：
+
+```bash
+source /opt/ros/humble/setup.bash
+source /home/niic/rokae_ws/install/local_setup.bash
+python3 /home/niic/rokae_ws/src/test/test_fk_ik.py
+```
+
+程序顶部使用 `ARM_TYPE=1` 选择左臂，`ARM_TYPE=2` 选择右臂。测试不会上电或
+控制机械臂运动。

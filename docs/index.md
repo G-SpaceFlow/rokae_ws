@@ -14,6 +14,8 @@ hero:
       link: https://github.com/G-SpaceFlow/rokae_ws
 
 features:
+  - title: 统一接口命名
+    details: 所有上肢接口使用 /aide/upperlimb/<功能>/<对象>，可按机器人、子系统和功能快速定位。
   - title: 状态接口
     details: 关节状态、TCP 位姿和左右臂 Jacobian。
   - title: 运动接口
