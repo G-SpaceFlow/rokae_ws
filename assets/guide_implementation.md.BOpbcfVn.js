@@ -1,0 +1,13 @@
+import { _ as _export_sfc, o as openBlock, c as createElementBlock, a3 as createStaticVNode } from "./chunks/framework.Cj9_MUzw.js";
+const __pageData = JSON.parse('{"title":"🗂️ 实现位置","description":"","frontmatter":{"title":"🗂️ 实现位置","outline":[2,4]},"headers":[],"relativePath":"guide/implementation.md","filePath":"guide/implementation.md","lastUpdated":null}');
+const _sfc_main = { name: "guide/implementation.md" };
+function _sfc_render(_ctx, _cache, $props, $setup, $data, $options) {
+  return openBlock(), createElementBlock("div", null, [..._cache[0] || (_cache[0] = [
+    createStaticVNode('<h1 id="🗂️-实现位置" tabindex="-1">🗂️ 实现位置 <a class="header-anchor" href="#🗂️-实现位置" aria-label="Permalink to &quot;🗂️ 实现位置&quot;">​</a></h1><p><a href="/rokae_ws/ROS2_INTERFACE_REFERENCE">查看完整来源文档</a></p><table tabindex="0"><thead><tr><th>内容</th><th>源文件</th></tr></thead><tbody><tr><td>共享 SDK 对象与互斥</td><td><code>src/rokae_driver/include/rokae_driver/shared_arm_hardware.hpp</code></td></tr><tr><td>统一进程入口</td><td><code>src/rokae_driver/src/ros_dual_arm_driver.cpp</code></td></tr><tr><td>接口命名常量</td><td><code>src/rokae_driver/include/rokae_driver/interface_names.hpp</code></td></tr><tr><td>MoveAbsJ</td><td><code>src/rokae_driver/src/ros_moveabsj_action_server.cpp</code></td></tr><tr><td>MoveJ By Path</td><td><code>src/rokae_driver/src/ros_movej_by_path_service.cpp</code></td></tr><tr><td>MoveL 与笛卡尔状态</td><td><code>src/rokae_driver/src/ros_movel_service.cpp</code></td></tr><tr><td>ServoJ 实时关节控制</td><td><code>src/rokae_driver/src/ros_servoj_subscriber.cpp</code></td></tr><tr><td>ServoL 实时笛卡尔控制</td><td><code>src/rokae_driver/src/ros_servol_subscriber.cpp</code></td></tr><tr><td>FK/IK 运动学服务</td><td><code>src/rokae_driver/src/ros_kinematics_service.cpp</code></td></tr><tr><td>单臂与双臂回原</td><td><code>src/rokae_driver/src/ros_go_home_service.cpp</code></td></tr><tr><td>状态与 Jacobian</td><td><code>src/rokae_driver/src/ros_pos_publisher.cpp</code></td></tr><tr><td>初始化</td><td><code>src/rokae_driver/src/ros_robot_initializer_service.cpp</code></td></tr><tr><td>灵巧手</td><td><code>src/rokae_driver/src/ros_hand_service.cpp</code></td></tr><tr><td>自定义接口定义</td><td><code>src/rokae_interfaces/msg/</code>、<code>src/rokae_interfaces/srv/</code></td></tr><tr><td>部署参数</td><td><code>src/rokae_bringup/config/dual_arm.yaml</code></td></tr><tr><td>Launch</td><td><code>src/rokae_bringup/launch/dual_arm.launch.py</code></td></tr></tbody></table><p>接口字段或行为发生变化时，应同时更新本文件、对应 <code>.msg</code>/<code>.srv</code> 注释和部署参数。</p>', 4)
+  ])]);
+}
+const implementation = /* @__PURE__ */ _export_sfc(_sfc_main, [["render", _sfc_render]]);
+export {
+  __pageData,
+  implementation as default
+};
