@@ -273,17 +273,9 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 
 ### 2.5 底层控制 Services（26）
 
-#### 1. initialize
+#### 上肢运动与状态查询（11） {#service-motion}
 
-| 字段 | 值 |
-| --- | --- |
-| Service Name | `/aide/upperlimb/initialize` |
-| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
-| Direction | Service Server |
-| Description | 初始化左右臂并验证上电状态 |
-| Note | 同时占用双臂；不发送运动命令 |
-
-#### 2. movej_by_path/left_arm
+##### movej_by_path/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -293,7 +285,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 左臂多轨迹点关节空间运动 |
 | Note | 请求携带 2 至 100 个七关节路点；使用 SDK 队列一次执行 |
 
-#### 3. movej_by_path/right_arm
+##### movej_by_path/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -303,7 +295,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 右臂多轨迹点关节空间运动 |
 | Note | 请求携带 2 至 100 个七关节路点；使用 SDK 队列一次执行 |
 
-#### 4. movej_by_path/dual_arm
+##### movej_by_path/dual_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -313,7 +305,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 双臂同步多轨迹点关节空间运动 |
 | Note | 左右路径点数必须相同；同时取得双臂控制锁 |
 
-#### 5. move_l/left_arm
+##### move_l/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -323,7 +315,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 左臂绝对 TCP 直线运动 |
 | Note | 显式接收 `[x,y,z,rx,ry,rz]` 和七轴臂角；阻塞至完成或失败 |
 
-#### 6. move_l/right_arm
+##### move_l/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -333,7 +325,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 右臂绝对 TCP 直线运动 |
 | Note | 显式接收 `[x,y,z,rx,ry,rz]` 和七轴臂角；阻塞至完成或失败 |
 
-#### 7. move_l_relative/left_arm
+##### move_l_relative/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -343,7 +335,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 左臂相对 TCP 直线运动 |
 | Note | 位移相对于外部参考系；保留当前臂角、构型和未覆盖姿态轴 |
 
-#### 8. move_l_relative/right_arm
+##### move_l_relative/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -353,7 +345,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 右臂相对 TCP 直线运动 |
 | Note | 位移相对于外部参考系；保留当前臂角、构型和未覆盖姿态轴 |
 
-#### 9. move_l_target/left_arm
+##### move_l_target/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -363,7 +355,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 左臂构型保持的绝对目标 MoveL |
 | Note | 主要供视觉使用；保留控制器当前臂角、构型和外部轴 |
 
-#### 10. move_l_target/right_arm
+##### move_l_target/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -373,7 +365,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 右臂构型保持的绝对目标 MoveL |
 | Note | 主要供视觉使用；保留控制器当前臂角、构型和外部轴 |
 
-#### 11. get_cartesian_state/left_arm
+##### get_cartesian_state/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -383,7 +375,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 查询左臂当前 TCP 位姿 |
 | Note | 返回 `[x,y,z,rx,ry,rz]`；运动控制锁被占用时查询失败 |
 
-#### 12. get_cartesian_state/right_arm
+##### get_cartesian_state/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -393,7 +385,9 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 查询右臂当前 TCP 位姿 |
 | Note | 返回 `[x,y,z,rx,ry,rz]`；运动控制锁被占用时查询失败 |
 
-#### 13. control_hand/left_arm
+#### 灵巧手（2） {#service-hand}
+
+##### control_hand/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -403,7 +397,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 通过左臂末端 CAN 控制左灵巧手 |
 | Note | 支持开、半开、闭合、六电机位置、速度和压力读取 |
 
-#### 14. control_hand/right_arm
+##### control_hand/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -413,7 +407,9 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 通过右臂末端 CAN 控制右灵巧手 |
 | Note | 支持开、半开、闭合、六电机位置、速度和压力读取 |
 
-#### 15. go_home/left_arm
+#### 回原（3） {#service-home}
+
+##### go_home/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -423,7 +419,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 左臂回到配置的原点关节位置 |
 | Note | 使用 MoveAbsJ；不会自动上电；执行期间独占左臂 |
 
-#### 16. go_home/right_arm
+##### go_home/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -433,7 +429,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 右臂回到配置的原点关节位置 |
 | Note | 使用 MoveAbsJ；不会自动上电；执行期间独占右臂 |
 
-#### 17. go_home/dual_arm
+##### go_home/dual_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -443,7 +439,19 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 左右臂分别回到各自原点 |
 | Note | 同时取得双臂控制锁；任一侧失败会停止两侧 |
 
-#### 18. initialize/left_arm
+#### 初始化与上电（6） {#service-power}
+
+##### initialize
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/initialize` |
+| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
+| Direction | Service Server |
+| Description | 初始化左右臂并验证上电状态 |
+| Note | 同时占用双臂；不发送运动命令 |
+
+##### initialize/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -453,7 +461,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 完整初始化并上电左臂 |
 | Note | 不发送运动指令 |
 
-#### 19. initialize/right_arm
+##### initialize/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -463,7 +471,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 完整初始化并上电右臂 |
 | Note | 不发送运动指令 |
 
-#### 20. initialize/dual_arm
+##### initialize/dual_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -473,7 +481,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 完整初始化并上电双臂 |
 | Note | 与无目标后缀的兼容接口行为一致 |
 
-#### 21. power_on/left_arm
+##### power_on/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -483,7 +491,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 按需给左臂上电 |
 | Note | 已上电时直接成功返回，避免重复切换模式 |
 
-#### 22. power_on/right_arm
+##### power_on/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -493,7 +501,9 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 按需给右臂上电 |
 | Note | 已上电时直接成功返回，避免重复切换模式 |
 
-#### 23. fk/left_arm
+#### FK 正运动学（2） {#service-fk}
+
+##### fk/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -503,7 +513,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 根据左臂七关节角计算 TCP 位姿 |
 | Note | 只计算，不上电、不运动 |
 
-#### 24. fk/right_arm
+##### fk/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -513,7 +523,9 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 根据右臂七关节角计算 TCP 位姿 |
 | Note | 只计算，不上电、不运动 |
 
-#### 25. ik/left_arm
+#### IK 逆运动学（2） {#service-ik}
+
+##### ik/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -523,7 +535,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 根据左臂 TCP 位姿计算七关节角 |
 | Note | SDK 结果经 FK 回算校验；只计算，不运动 |
 
-#### 26. ik/right_arm
+##### ik/right_arm
 
 | 字段 | 值 |
 | --- | --- |

@@ -10,9 +10,26 @@ export function interfaceCounts(markdown) {
   const quick = section(2)
   const services = names(quick, 'Service Name')
   const topics = names(quick, 'Topic Name')
+  const actions = names(quick, 'Action Name')
+  const matching = (items, pattern) => items.filter(name => pattern.test(name)).length
   return {
     topics: topics.length,
     services: services.length,
-    actions: names(quick, 'Action Name').length,
+    actions: actions.length,
+    stateTopics: matching(topics, /\/(joint_states|tcp_pose|jacobian)\//),
+    servoJTopics: matching(topics, /\/servoj\//),
+    servoLTopics: matching(topics, /\/servol\//),
+    moveActions: matching(actions, /\/move_absj\//),
+    motionServices: matching(services, /\/(movej_by_path|move_l|move_l_relative|move_l_target|get_cartesian_state)\//),
+    powerServices: matching(services, /\/(initialize|power_on)(\/|$)/),
+    homeServices: matching(services, /\/go_home\//),
+    handServices: matching(services, /\/control_hand\//),
+    fkServices: matching(services, /\/fk\//),
+    ikServices: matching(services, /\/ik\//),
+    visionTopics: 11,
+    visionServices: 4,
+    chassisTopics: 2,
+    chassisServices: 1,
+    chassisActions: 1,
   }
 }
