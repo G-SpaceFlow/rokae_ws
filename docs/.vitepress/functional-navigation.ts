@@ -15,11 +15,25 @@ export default {
     { text: '📡 ROS API', collapsed: false, items: [
       { text: '完整 API 文档', link: '/ROS2_INTERFACE_REFERENCE' },
     ] },
-    { text: '🧩 接口契约与示例', collapsed: false, items: [
-      { text: 'FK / IK 运动学计算', link: '/api/kinematics' },
-      { text: '数据类型与接口契约', link: '/api/joint-trajectory' },
-      { text: 'Python 开发示例', link: '/guide/trajectory-client' },
-      { text: '实现进度与已知限制', link: '/guide/status' },
+    { text: '🧩 Message Type', collapsed: false, items: [
+      { text: '消息类型', link: '/reference/message-types' },
+      { text: '服务类型', link: '/reference/service-types' },
+      { text: '动作类型', link: '/reference/action-types' },
+    ] },
+    { text: '🧪 接口示例', collapsed: true, items: [
+      { text: '状态反馈', link: '/api/state' },
+      { text: 'ServoJ / ServoL', link: '/api/servoj' },
+      { text: 'MoveAbsJ / MoveJ Path', link: '/api/moveabsj' },
+      { text: 'MoveL', link: '/api/movel' },
+      { text: '初始化上电', link: '/api/power' },
+      { text: '回原', link: '/api/home' },
+      { text: '灵巧手', link: '/api/hand' },
+      { text: 'FK / IK', link: '/api/kinematics' },
+      { text: '视觉目标', link: '/api/vision' },
+      { text: '底盘桥接', link: '/api/chassis' },
+      { text: '关节轨迹接口契约', link: '/api/joint-trajectory' },
+      { text: 'Python 轨迹示例', link: '/guide/trajectory-client' },
+      { text: '实现进度与限制', link: '/guide/status' },
     ] },
     { text: '🛡️ 配置与安全', collapsed: true, items: [
       { text: '参数参考', link: '/guide/parameters' },

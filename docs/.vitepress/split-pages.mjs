@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 const root = resolve(process.argv[2] || fileURLToPath(new URL('..', import.meta.url)))
-const reference = readFileSync(resolve(root, 'ROS2_INTERFACE_REFERENCE.md'), 'utf8')
+const reference = readFileSync(resolve(root, '.vitepress/ROS2_INTERFACE_DETAILS.md'), 'utf8')
 const update = readFileSync(resolve(root, 'JOINT_TRAJECTORY_UPDATE.md'), 'utf8')
 const sections = [...reference.matchAll(/^## (\d+)\. .*$/gm)]
 function section(number) {

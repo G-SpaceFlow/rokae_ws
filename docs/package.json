@@ -2,8 +2,9 @@
   "name": "rokae-ros2-docs",
   "private": true,
   "scripts": {
-    "dev": "vitepress .",
-    "build": "vitepress build .",
+    "catalog": "node .vitepress/build-api-catalog.mjs",
+    "dev": "npm run catalog && vitepress .",
+    "build": "npm run catalog && vitepress build .",
     "preview": "vitepress preview ."
   },
   "devDependencies": {

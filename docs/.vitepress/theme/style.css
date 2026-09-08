@@ -62,6 +62,18 @@
 .vp-doc h3 { margin-top: 28px; }
 .vp-doc th { font-weight: 650; white-space: nowrap; }
 .vp-doc td, .vp-doc th { padding: 11px 15px; }
+.vp-doc td a code {
+  color: var(--vp-c-brand-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: transparent;
+  padding: 0;
+}
+.vp-doc td a code::after {
+  content: ' ↗';
+  font-family: inherit;
+  font-size: 11px;
+}
 .vp-doc blockquote {
   background: var(--vp-c-bg-soft);
   border-color: var(--vp-c-brand-1);
