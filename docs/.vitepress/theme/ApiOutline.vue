@@ -1,30 +1,30 @@
 <script setup lang="ts">
-import { useData, withBase } from 'vitepress'
+import { useData } from 'vitepress'
 import { computed } from 'vue'
 const { page } = useData()
 const counts = computed(() => page.value.frontmatter.interfaceCounts || {})
 // Fixed page-level navigation. Never derive its contents from the URL hash.
 const groups = [
-  { title: '📡 Topics', total: 32, open: true, items: [
+  { title: '📡 Topics', count: 'topics', open: true, items: [
     { title: '上肢状态反馈', count: 'stateTopics', hash: '_2-1-上肢状态-topics-6' },
     { title: '上肢 ServoJ', count: 'servoJTopics', hash: '_2-2-servoj-实时控制-topics-3' },
     { title: '上肢 ServoL', count: 'servoLTopics', hash: '_2-3-servol-实时控制-topics-10' },
-    { title: '摄像头与视觉', count: 'visionTopics', link: '/api/vision' },
-    { title: '移动底盘', count: 'chassisTopics', link: '/api/chassis' },
+    { title: '摄像头与视觉', count: 'visionTopics', hash: 'topic-vision' },
+    { title: '移动底盘', count: 'chassisTopics', hash: 'topic-chassis' },
   ] },
-  { title: '📦 Services', total: 31, open: true, items: [
+  { title: '📦 Services', count: 'services', open: true, items: [
     { title: '上肢运动与状态', count: 'motionServices', hash: 'service-motion' },
     { title: '初始化与上电', count: 'powerServices', hash: 'service-power' },
     { title: '回原', count: 'homeServices', hash: 'service-home' },
     { title: '灵巧手', count: 'handServices', hash: 'service-hand' },
     { title: 'FK 正运动学', count: 'fkServices', hash: 'service-fk' },
     { title: 'IK 逆运动学', count: 'ikServices', hash: 'service-ik' },
-    { title: '摄像头与视觉', count: 'visionServices', link: '/api/vision' },
-    { title: '移动底盘', count: 'chassisServices', link: '/api/chassis' },
+    { title: '摄像头与视觉', count: 'visionServices', hash: 'service-vision' },
+    { title: '移动底盘', count: 'chassisServices', hash: 'service-chassis' },
   ] },
-  { title: '🎯 Actions', total: 3, open: false, items: [
+  { title: '🎯 Actions', count: 'actions', open: false, items: [
     { title: '上肢 MoveAbsJ', count: 'moveActions', hash: '_2-4-上肢运动-actions-2' },
-    { title: '底盘导航', count: 'chassisActions', link: '/api/chassis' },
+    { title: '底盘导航', count: 'chassisActions', hash: 'action-chassis' },
   ] },
 ]
 </script>
@@ -37,10 +37,10 @@ const groups = [
       <li><a href="#_2-api-快速查询">📑 API 目录</a></li>
       <li v-for="group in groups" :key="group.title">
         <details class="api-outline-section" :open="group.open">
-          <summary>{{ group.title }}<span>{{ group.total }}</span></summary>
+          <summary>{{ group.title }}<span>{{ counts[group.count] ?? '—' }}</span></summary>
           <ul>
-            <li v-for="item in group.items" :key="item.hash || item.link">
-              <a :href="item.link ? withBase(item.link) : `#${item.hash}`">
+            <li v-for="item in group.items" :key="item.hash">
+              <a :href="`#${item.hash}`">
                 <span>{{ item.title }}</span>
                 <small>{{ counts[item.count] ?? '—' }}</small>
               </a>

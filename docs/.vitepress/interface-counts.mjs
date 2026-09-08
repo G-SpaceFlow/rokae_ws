@@ -26,10 +26,10 @@ export function interfaceCounts(markdown) {
     handServices: matching(services, /\/control_hand\//),
     fkServices: matching(services, /\/fk\//),
     ikServices: matching(services, /\/ik\//),
-    visionTopics: 11,
-    visionServices: 4,
-    chassisTopics: 2,
-    chassisServices: 1,
-    chassisActions: 1,
+    visionTopics: matching(topics, /^\/(yolo_vision|aruco|tool|box|box_grab_points|small_box)(\/|$)/),
+    visionServices: matching(services, /^\/bt_target_server\//),
+    chassisTopics: matching(topics, /^\/(scheduler|chassis)\//),
+    chassisServices: matching(services, /^\/bt_navigation_server\//),
+    chassisActions: matching(actions, /^\/seer\//),
   }
 }

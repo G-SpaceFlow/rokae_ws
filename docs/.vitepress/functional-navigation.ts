@@ -15,12 +15,7 @@ export default {
     { text: '📡 ROS API', collapsed: false, items: [
       { text: '完整 API 文档', link: '/ROS2_INTERFACE_REFERENCE' },
     ] },
-    { text: '🧩 Message Type', collapsed: false, items: [
-      { text: '消息类型', link: '/reference/message-types' },
-      { text: '服务类型', link: '/reference/service-types' },
-      { text: '动作类型', link: '/reference/action-types' },
-    ] },
-    { text: '🧪 接口示例', collapsed: true, items: [
+    { text: '🧩 接口说明与示例', collapsed: true, items: [
       { text: '状态反馈', link: '/api/state' },
       { text: 'ServoJ / ServoL', link: '/api/servoj' },
       { text: 'MoveAbsJ / MoveJ Path', link: '/api/moveabsj' },
@@ -33,12 +28,12 @@ export default {
       { text: '底盘桥接', link: '/api/chassis' },
       { text: '关节轨迹接口契约', link: '/api/joint-trajectory' },
       { text: 'Python 轨迹示例', link: '/guide/trajectory-client' },
-      { text: '实现进度与限制', link: '/guide/status' },
     ] },
     { text: '🛡️ 配置与安全', collapsed: true, items: [
       { text: '参数参考', link: '/guide/parameters' },
       { text: '控制权与并发', link: '/guide/concurrency' },
       { text: '安全使用要求', link: '/guide/safety' },
+      { text: '实现进度与限制', link: '/guide/status' },
     ] },
   ],
 }

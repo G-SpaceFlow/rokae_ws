@@ -50,8 +50,8 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 - [ServoL 实时控制 Topics（10）](#_2-3-servol-实时控制-topics-10)
 - [上肢运动 Actions（2）](#_2-4-上肢运动-actions-2)
 - [底层控制 Services（26）](#_2-5-底层控制-services-26)
-- [上层视觉目标接口示例](/api/vision)
-- [可选底盘桥接接口示例](/api/chassis)
+- [摄像头与视觉](#topic-vision)
+- [移动底盘](#topic-chassis)
 
 ### 2.1 上肢状态 Topics（6）
 
@@ -60,7 +60,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/joint_states/left_arm` |
-| Type | [`sensor_msgs/msg/JointState`](/reference/message-types#sensor-msgs-msg-jointstate) |
+| Type | [`sensor_msgs/msg/JointState`](/api/state#_5-1-joint-states) |
 | Direction | Publish |
 | Description | 发布左臂七个关节的当前位置 |
 | Note | 当前只填写 `position`，单位 rad；默认 20 Hz，QoS depth 10 |
@@ -70,7 +70,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/joint_states/right_arm` |
-| Type | [`sensor_msgs/msg/JointState`](/reference/message-types#sensor-msgs-msg-jointstate) |
+| Type | [`sensor_msgs/msg/JointState`](/api/state#_5-1-joint-states) |
 | Direction | Publish |
 | Description | 发布右臂七个关节的当前位置 |
 | Note | 当前只填写 `position`，单位 rad；默认 20 Hz，QoS depth 10 |
@@ -80,7 +80,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/tcp_pose/left_arm` |
-| Type | [`geometry_msgs/msg/PoseStamped`](/reference/message-types#geometry-msgs-msg-posestamped) |
+| Type | [`geometry_msgs/msg/PoseStamped`](/api/state#_5-2-tcp-pose) |
 | Direction | Publish |
 | Description | 发布左臂当前 TCP 位姿 |
 | Note | 位置单位 m，姿态为四元数，默认参考帧 `left_external_ref` |
@@ -90,7 +90,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/tcp_pose/right_arm` |
-| Type | [`geometry_msgs/msg/PoseStamped`](/reference/message-types#geometry-msgs-msg-posestamped) |
+| Type | [`geometry_msgs/msg/PoseStamped`](/api/state#_5-2-tcp-pose) |
 | Direction | Publish |
 | Description | 发布右臂当前 TCP 位姿 |
 | Note | 位置单位 m，姿态为四元数，默认参考帧 `right_external_ref` |
@@ -100,7 +100,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/jacobian/left_arm` |
-| Type | [`std_msgs/msg/Float64MultiArray`](/reference/message-types#std-msgs-msg-float64multiarray) |
+| Type | [`std_msgs/msg/Float64MultiArray`](/api/state#_5-3-jacobian) |
 | Direction | Publish |
 | Description | 发布左臂当前位置的运动 Jacobian |
 | Note | SDK 行优先 `6 x 7` 法兰 Jacobian；无订阅者时跳过计算 |
@@ -110,7 +110,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/jacobian/right_arm` |
-| Type | [`std_msgs/msg/Float64MultiArray`](/reference/message-types#std-msgs-msg-float64multiarray) |
+| Type | [`std_msgs/msg/Float64MultiArray`](/api/state#_5-3-jacobian) |
 | Direction | Publish |
 | Description | 发布右臂当前位置的运动 Jacobian |
 | Note | SDK 行优先 `6 x 7` 法兰 Jacobian；无订阅者时跳过计算 |
@@ -122,7 +122,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servoj/left_arm` |
-| Type | [`rokae_interfaces/msg/ServoJ`](/reference/message-types#rokae-interfaces-msg-servoj) |
+| Type | [`rokae_interfaces/msg/ServoJ`](/api/servoj#_6-1-消息结构) |
 | Direction | Subscribe |
 | Description | 左臂实时关节空间位置控制 |
 | Note | `enable=true` 更新七关节目标；`false` 停止；单位 rad |
@@ -132,7 +132,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servoj/right_arm` |
-| Type | [`rokae_interfaces/msg/ServoJ`](/reference/message-types#rokae-interfaces-msg-servoj) |
+| Type | [`rokae_interfaces/msg/ServoJ`](/api/servoj#_6-1-消息结构) |
 | Direction | Subscribe |
 | Description | 右臂实时关节空间位置控制 |
 | Note | `enable=true` 更新七关节目标；`false` 停止；单位 rad |
@@ -142,7 +142,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servoj/dual_arm` |
-| Type | [`rokae_interfaces/msg/DualArmServoJ`](/reference/message-types#rokae-interfaces-msg-dualarmservoj) |
+| Type | [`rokae_interfaces/msg/DualArmServoJ`](/api/servoj#_6-1-消息结构) |
 | Direction | Subscribe |
 | Description | 双臂同周期实时关节空间位置控制 |
 | Note | 单帧包含左右各七个关节目标；启动时同时取得双臂控制锁 |
@@ -154,7 +154,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servol/left_arm` |
-| Type | [`geometry_msgs/msg/Pose`](/reference/message-types#geometry-msgs-msg-pose) |
+| Type | [`geometry_msgs/msg/Pose`](/api/servoj#_6-4-servol-消息与坐标系) |
 | Direction | Subscribe |
 | Description | 左臂实时笛卡尔 TCP 位姿目标 |
 | Note | 目标位于外部参考系；位置 m、姿态四元数；默认 100 Hz |
@@ -164,7 +164,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servol/right_arm` |
-| Type | [`geometry_msgs/msg/Pose`](/reference/message-types#geometry-msgs-msg-pose) |
+| Type | [`geometry_msgs/msg/Pose`](/api/servoj#_6-4-servol-消息与坐标系) |
 | Direction | Subscribe |
 | Description | 右臂实时笛卡尔 TCP 位姿目标 |
 | Note | 目标位于外部参考系；位置 m、姿态四元数；默认 100 Hz |
@@ -174,7 +174,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servol/dual_arm` |
-| Type | [`rokae_interfaces/msg/DualArmServoL`](/reference/message-types#rokae-interfaces-msg-dualarmservol) |
+| Type | [`rokae_interfaces/msg/DualArmServoL`](/api/servoj#_6-4-servol-消息与坐标系) |
 | Direction | Subscribe |
 | Description | 双臂同周期实时笛卡尔 TCP 位姿目标 |
 | Note | 单帧携带左右臂目标；同时取得双臂控制锁 |
@@ -184,7 +184,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servol/stop` |
-| Type | [`std_msgs/msg/Bool`](/reference/message-types#std-msgs-msg-bool) |
+| Type | [`std_msgs/msg/Bool`](/api/servoj#_6-4-servol-消息与坐标系) |
 | Direction | Subscribe |
 | Description | 停止所有 ServoL 模式 |
 | Note | 发布 `true` 生效 |
@@ -194,7 +194,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servol/stop/left_arm` |
-| Type | [`std_msgs/msg/Bool`](/reference/message-types#std-msgs-msg-bool) |
+| Type | [`std_msgs/msg/Bool`](/api/servoj#_6-4-servol-消息与坐标系) |
 | Direction | Subscribe |
 | Description | 停止左臂 ServoL 模式 |
 | Note | 发布 `true` 生效 |
@@ -204,7 +204,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servol/stop/right_arm` |
-| Type | [`std_msgs/msg/Bool`](/reference/message-types#std-msgs-msg-bool) |
+| Type | [`std_msgs/msg/Bool`](/api/servoj#_6-4-servol-消息与坐标系) |
 | Direction | Subscribe |
 | Description | 停止右臂 ServoL 模式 |
 | Note | 发布 `true` 生效 |
@@ -214,7 +214,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servol/stop/dual_arm` |
-| Type | [`std_msgs/msg/Bool`](/reference/message-types#std-msgs-msg-bool) |
+| Type | [`std_msgs/msg/Bool`](/api/servoj#_6-4-servol-消息与坐标系) |
 | Direction | Subscribe |
 | Description | 停止双臂 ServoL 模式 |
 | Note | 发布 `true` 生效 |
@@ -224,7 +224,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servol/command_pose/left_arm` |
-| Type | [`geometry_msgs/msg/PoseStamped`](/reference/message-types#geometry-msgs-msg-posestamped) |
+| Type | [`geometry_msgs/msg/PoseStamped`](/api/servoj#_6-4-servol-消息与坐标系) |
 | Direction | Publish |
 | Description | 发布驱动实际生成的左臂 EndInRef 命令位姿 |
 | Note | 这是命令状态，不是机械臂实测反馈 |
@@ -234,7 +234,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servol/command_pose/right_arm` |
-| Type | [`geometry_msgs/msg/PoseStamped`](/reference/message-types#geometry-msgs-msg-posestamped) |
+| Type | [`geometry_msgs/msg/PoseStamped`](/api/servoj#_6-4-servol-消息与坐标系) |
 | Direction | Publish |
 | Description | 发布驱动实际生成的右臂 EndInRef 命令位姿 |
 | Note | 这是命令状态，不是机械臂实测反馈 |
@@ -244,7 +244,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Topic Name | `/aide/upperlimb/servol/status` |
-| Type | [`std_msgs/msg/String`](/reference/message-types#std-msgs-msg-string) |
+| Type | [`std_msgs/msg/String`](/api/servoj#_6-4-servol-消息与坐标系) |
 | Direction | Publish |
 | Description | 发布 ServoL 会话阶段、停止原因和 SDK 错误 |
 | Note | 诊断信息，不作为实时控制输入 |
@@ -256,7 +256,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Action Name | `/aide/upperlimb/move_absj/left_arm` |
-| Type | [`control_msgs/action/FollowJointTrajectory`](/reference/action-types#control-msgs-action-followjointtrajectory) |
+| Type | [`control_msgs/action/FollowJointTrajectory`](/api/moveabsj) |
 | Direction | Action Server |
 | Description | 左臂非实时关节空间点到点运动 |
 | Note | 只接受一个七关节位置点；支持反馈、取消、超时与结果检查 |
@@ -266,7 +266,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Action Name | `/aide/upperlimb/move_absj/right_arm` |
-| Type | [`control_msgs/action/FollowJointTrajectory`](/reference/action-types#control-msgs-action-followjointtrajectory) |
+| Type | [`control_msgs/action/FollowJointTrajectory`](/api/moveabsj) |
 | Direction | Action Server |
 | Description | 右臂非实时关节空间点到点运动 |
 | Note | 只接受一个七关节位置点；支持反馈、取消、超时与结果检查 |
@@ -280,7 +280,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/movej_by_path/left_arm` |
-| Type | [`rokae_interfaces/srv/MoveJByPath`](/reference/service-types#rokae-interfaces-srv-movejbypath) |
+| Type | [`rokae_interfaces/srv/MoveJByPath`](/api/moveabsj#_7-6-movej-by-path-service) |
 | Direction | Service Server |
 | Description | 左臂多轨迹点关节空间运动 |
 | Note | 请求携带 2 至 100 个七关节路点；使用 SDK 队列一次执行 |
@@ -290,7 +290,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/movej_by_path/right_arm` |
-| Type | [`rokae_interfaces/srv/MoveJByPath`](/reference/service-types#rokae-interfaces-srv-movejbypath) |
+| Type | [`rokae_interfaces/srv/MoveJByPath`](/api/moveabsj#_7-6-movej-by-path-service) |
 | Direction | Service Server |
 | Description | 右臂多轨迹点关节空间运动 |
 | Note | 请求携带 2 至 100 个七关节路点；使用 SDK 队列一次执行 |
@@ -300,7 +300,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/movej_by_path/dual_arm` |
-| Type | [`rokae_interfaces/srv/MoveJByPath`](/reference/service-types#rokae-interfaces-srv-movejbypath) |
+| Type | [`rokae_interfaces/srv/MoveJByPath`](/api/moveabsj#_7-6-movej-by-path-service) |
 | Direction | Service Server |
 | Description | 双臂同步多轨迹点关节空间运动 |
 | Note | 左右路径点数必须相同；同时取得双臂控制锁 |
@@ -310,7 +310,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/move_l/left_arm` |
-| Type | [`rokae_interfaces/srv/MoveL`](/reference/service-types#rokae-interfaces-srv-movel) |
+| Type | [`rokae_interfaces/srv/MoveL`](/api/movel#_8-1-绝对-movel) |
 | Direction | Service Server |
 | Description | 左臂绝对 TCP 直线运动 |
 | Note | 显式接收 `[x,y,z,rx,ry,rz]` 和七轴臂角；阻塞至完成或失败 |
@@ -320,7 +320,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/move_l/right_arm` |
-| Type | [`rokae_interfaces/srv/MoveL`](/reference/service-types#rokae-interfaces-srv-movel) |
+| Type | [`rokae_interfaces/srv/MoveL`](/api/movel#_8-1-绝对-movel) |
 | Direction | Service Server |
 | Description | 右臂绝对 TCP 直线运动 |
 | Note | 显式接收 `[x,y,z,rx,ry,rz]` 和七轴臂角；阻塞至完成或失败 |
@@ -330,7 +330,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/move_l_relative/left_arm` |
-| Type | [`rokae_interfaces/srv/MoveLRelative`](/reference/service-types#rokae-interfaces-srv-movelrelative) |
+| Type | [`rokae_interfaces/srv/MoveLRelative`](/api/movel#_8-2-相对-movel) |
 | Direction | Service Server |
 | Description | 左臂相对 TCP 直线运动 |
 | Note | 位移相对于外部参考系；保留当前臂角、构型和未覆盖姿态轴 |
@@ -340,7 +340,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/move_l_relative/right_arm` |
-| Type | [`rokae_interfaces/srv/MoveLRelative`](/reference/service-types#rokae-interfaces-srv-movelrelative) |
+| Type | [`rokae_interfaces/srv/MoveLRelative`](/api/movel#_8-2-相对-movel) |
 | Direction | Service Server |
 | Description | 右臂相对 TCP 直线运动 |
 | Note | 位移相对于外部参考系；保留当前臂角、构型和未覆盖姿态轴 |
@@ -350,7 +350,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/move_l_target/left_arm` |
-| Type | [`rokae_interfaces/srv/MoveLTarget`](/reference/service-types#rokae-interfaces-srv-moveltarget) |
+| Type | [`rokae_interfaces/srv/MoveLTarget`](/api/movel#_8-3-构型保持-movel) |
 | Direction | Service Server |
 | Description | 左臂构型保持的绝对目标 MoveL |
 | Note | 主要供视觉使用；保留控制器当前臂角、构型和外部轴 |
@@ -360,7 +360,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/move_l_target/right_arm` |
-| Type | [`rokae_interfaces/srv/MoveLTarget`](/reference/service-types#rokae-interfaces-srv-moveltarget) |
+| Type | [`rokae_interfaces/srv/MoveLTarget`](/api/movel#_8-3-构型保持-movel) |
 | Direction | Service Server |
 | Description | 右臂构型保持的绝对目标 MoveL |
 | Note | 主要供视觉使用；保留控制器当前臂角、构型和外部轴 |
@@ -370,7 +370,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/get_cartesian_state/left_arm` |
-| Type | [`rokae_interfaces/srv/GetCartesianState`](/reference/service-types#rokae-interfaces-srv-getcartesianstate) |
+| Type | [`rokae_interfaces/srv/GetCartesianState`](/api/movel#_8-4-读取笛卡尔状态) |
 | Direction | Service Server |
 | Description | 查询左臂当前 TCP 位姿 |
 | Note | 返回 `[x,y,z,rx,ry,rz]`；运动控制锁被占用时查询失败 |
@@ -380,7 +380,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/get_cartesian_state/right_arm` |
-| Type | [`rokae_interfaces/srv/GetCartesianState`](/reference/service-types#rokae-interfaces-srv-getcartesianstate) |
+| Type | [`rokae_interfaces/srv/GetCartesianState`](/api/movel#_8-4-读取笛卡尔状态) |
 | Direction | Service Server |
 | Description | 查询右臂当前 TCP 位姿 |
 | Note | 返回 `[x,y,z,rx,ry,rz]`；运动控制锁被占用时查询失败 |
@@ -392,7 +392,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/control_hand/left_arm` |
-| Type | [`rokae_interfaces/srv/ControlHand`](/reference/service-types#rokae-interfaces-srv-controlhand) |
+| Type | [`rokae_interfaces/srv/ControlHand`](/api/hand) |
 | Direction | Service Server |
 | Description | 通过左臂末端 CAN 控制左灵巧手 |
 | Note | 支持开、半开、闭合、六电机位置、速度和压力读取 |
@@ -402,7 +402,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/control_hand/right_arm` |
-| Type | [`rokae_interfaces/srv/ControlHand`](/reference/service-types#rokae-interfaces-srv-controlhand) |
+| Type | [`rokae_interfaces/srv/ControlHand`](/api/hand) |
 | Direction | Service Server |
 | Description | 通过右臂末端 CAN 控制右灵巧手 |
 | Note | 支持开、半开、闭合、六电机位置、速度和压力读取 |
@@ -414,7 +414,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/go_home/left_arm` |
-| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
+| Type | [`std_srvs/srv/Trigger`](/api/home) |
 | Direction | Service Server |
 | Description | 左臂回到配置的原点关节位置 |
 | Note | 使用 MoveAbsJ；不会自动上电；执行期间独占左臂 |
@@ -424,7 +424,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/go_home/right_arm` |
-| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
+| Type | [`std_srvs/srv/Trigger`](/api/home) |
 | Direction | Service Server |
 | Description | 右臂回到配置的原点关节位置 |
 | Note | 使用 MoveAbsJ；不会自动上电；执行期间独占右臂 |
@@ -434,7 +434,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/go_home/dual_arm` |
-| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
+| Type | [`std_srvs/srv/Trigger`](/api/home) |
 | Direction | Service Server |
 | Description | 左右臂分别回到各自原点 |
 | Note | 同时取得双臂控制锁；任一侧失败会停止两侧 |
@@ -446,7 +446,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/initialize` |
-| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
+| Type | [`std_srvs/srv/Trigger`](/api/power) |
 | Direction | Service Server |
 | Description | 初始化左右臂并验证上电状态 |
 | Note | 同时占用双臂；不发送运动命令 |
@@ -456,7 +456,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/initialize/left_arm` |
-| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
+| Type | [`std_srvs/srv/Trigger`](/api/power) |
 | Direction | Service Server |
 | Description | 完整初始化并上电左臂 |
 | Note | 不发送运动指令 |
@@ -466,7 +466,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/initialize/right_arm` |
-| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
+| Type | [`std_srvs/srv/Trigger`](/api/power) |
 | Direction | Service Server |
 | Description | 完整初始化并上电右臂 |
 | Note | 不发送运动指令 |
@@ -476,7 +476,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/initialize/dual_arm` |
-| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
+| Type | [`std_srvs/srv/Trigger`](/api/power) |
 | Direction | Service Server |
 | Description | 完整初始化并上电双臂 |
 | Note | 与无目标后缀的兼容接口行为一致 |
@@ -486,7 +486,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/power_on/left_arm` |
-| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
+| Type | [`std_srvs/srv/Trigger`](/api/power) |
 | Direction | Service Server |
 | Description | 按需给左臂上电 |
 | Note | 已上电时直接成功返回，避免重复切换模式 |
@@ -496,7 +496,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/power_on/right_arm` |
-| Type | [`std_srvs/srv/Trigger`](/reference/service-types#std-srvs-srv-trigger) |
+| Type | [`std_srvs/srv/Trigger`](/api/power) |
 | Direction | Service Server |
 | Description | 按需给右臂上电 |
 | Note | 已上电时直接成功返回，避免重复切换模式 |
@@ -508,7 +508,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/fk/left_arm` |
-| Type | [`rokae_interfaces/srv/ForwardKinematics`](/reference/service-types#rokae-interfaces-srv-forwardkinematics) |
+| Type | [`rokae_interfaces/srv/ForwardKinematics`](/api/kinematics#_18-1-forwardkinematics) |
 | Direction | Service Server |
 | Description | 根据左臂七关节角计算 TCP 位姿 |
 | Note | 只计算，不上电、不运动 |
@@ -518,7 +518,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/fk/right_arm` |
-| Type | [`rokae_interfaces/srv/ForwardKinematics`](/reference/service-types#rokae-interfaces-srv-forwardkinematics) |
+| Type | [`rokae_interfaces/srv/ForwardKinematics`](/api/kinematics#_18-1-forwardkinematics) |
 | Direction | Service Server |
 | Description | 根据右臂七关节角计算 TCP 位姿 |
 | Note | 只计算，不上电、不运动 |
@@ -530,7 +530,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/ik/left_arm` |
-| Type | [`rokae_interfaces/srv/InverseKinematics`](/reference/service-types#rokae-interfaces-srv-inversekinematics) |
+| Type | [`rokae_interfaces/srv/InverseKinematics`](/api/kinematics#_18-2-inversekinematics) |
 | Direction | Service Server |
 | Description | 根据左臂 TCP 位姿计算七关节角 |
 | Note | SDK 结果经 FK 回算校验；只计算，不运动 |
@@ -540,17 +540,193 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | 字段 | 值 |
 | --- | --- |
 | Service Name | `/aide/upperlimb/ik/right_arm` |
-| Type | [`rokae_interfaces/srv/InverseKinematics`](/reference/service-types#rokae-interfaces-srv-inversekinematics) |
+| Type | [`rokae_interfaces/srv/InverseKinematics`](/api/kinematics#_18-2-inversekinematics) |
 | Direction | Service Server |
 | Description | 根据右臂 TCP 位姿计算七关节角 |
 | Note | SDK 结果经 FK 回算校验；只计算，不运动 |
 
-## 接口类型与示例
+### 2.6 摄像头与视觉 Topics（11） {#topic-vision}
 
-完整 API 页面只负责快速查找接口。字段结构、请求/响应以及调用方式分别收录在：
+视觉检测依赖的话题；部分名称可通过参数覆盖。
 
-- [Message Type · 消息类型](/reference/message-types)
-- [Service Type · 服务类型](/reference/service-types)
-- [Action Type · 动作类型](/reference/action-types)
+##### /yolo_vision/front_points_base_json
 
-具体运动流程、参数限制和安全说明请从左侧“接口示例”进入对应功能页面。
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/yolo_vision/front_points_base_json` |
+| Type | [`std_msgs/msg/String`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+##### /yolo_vision/wall_angle
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/yolo_vision/wall_angle` |
+| Type | [`std_msgs/msg/String`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+##### /yolo_vision/mode5_points_json
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/yolo_vision/mode5_points_json` |
+| Type | [`std_msgs/msg/String`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+##### /yolo_vision/control
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/yolo_vision/control` |
+| Type | [`std_msgs/msg/Int32`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+##### /yolo_vision/target_labels
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/yolo_vision/target_labels` |
+| Type | [`std_msgs/msg/String`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+##### /aruco/enable
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aruco/enable` |
+| Type | [`std_msgs/msg/Int32`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+##### /tool/pose
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/tool/pose` |
+| Type | [`geometry_msgs/msg/PoseStamped`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+##### /box/enable
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/box/enable` |
+| Type | [`std_msgs/msg/Int32`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+##### /box_grab_points
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/box_grab_points` |
+| Type | [`box_detection_interfaces/msg/BoxGrabPoints`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+##### /small_box/enable
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/small_box/enable` |
+| Type | [`std_msgs/msg/Int32`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+##### /small_box/target
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/small_box/target` |
+| Type | [`box_detection_interfaces/msg/SmallBoxTarget`](/api/vision) |
+| Description | 视觉检测模块的数据或触发话题 |
+| Note | 具体数据格式与使用方法见 Type 链接。 |
+
+### 2.7 移动底盘 Topics（2） {#topic-chassis}
+
+##### /scheduler/cmd/chassis
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/scheduler/cmd/chassis` |
+| Type | [`std_msgs/msg/String`](/api/chassis) |
+| Description | 订阅 `LM1`、`LM2`、`LM3` |
+| Note | 可选底盘桥接；需启用 start_chassis_navigation。 |
+
+##### /chassis/state
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/chassis/state` |
+| Type | [`std_msgs/msg/String`](/api/chassis) |
+| Description | 发布到站或失败状态 |
+| Note | 可选底盘桥接；需启用 start_chassis_navigation。 |
+
+### 2.8 摄像头与视觉 Services（4） {#service-vision}
+
+##### /bt_target_server/trigger_detect
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/bt_target_server/trigger_detect` |
+| Type | [`rokae_interfaces/srv/GetVisionTarget`](/api/vision) |
+| Description | 触发检测并缓存/返回目标 |
+| Note | 由视觉目标服务提供。 |
+
+##### /bt_target_server/get_target
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/bt_target_server/get_target` |
+| Type | [`rokae_interfaces/srv/GetVisionTarget`](/api/vision) |
+| Description | 读取缓存目标 |
+| Note | 由视觉目标服务提供。 |
+
+##### /bt_target_server/set_offset
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/bt_target_server/set_offset` |
+| Type | [`rokae_interfaces/srv/SetVisionOffset`](/api/vision) |
+| Description | 设置内存中的双臂位姿偏移 |
+| Note | 由视觉目标服务提供。 |
+
+##### /bt_target_server/clear_cache
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/bt_target_server/clear_cache` |
+| Type | [`std_srvs/srv/Trigger`](/api/vision) |
+| Description | 清除所有缓存目标 |
+| Note | 由视觉目标服务提供。 |
+
+### 2.9 移动底盘 Services（1） {#service-chassis}
+
+##### /bt_navigation_server/cancel_navigation
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/bt_navigation_server/cancel_navigation` |
+| Type | [`std_srvs/srv/Trigger`](/api/chassis) |
+| Description | 取消当前导航 |
+| Note | 可选底盘桥接；需启用 start_chassis_navigation。 |
+
+### 2.10 底盘导航 Actions（1） {#action-chassis}
+
+##### /seer/navigate
+
+| 字段 | 值 |
+| --- | --- |
+| Action Name | `/seer/navigate` |
+| Type | [`seer_interfaces/action/Navigate`](/api/chassis) |
+| Description | 桥接器调用的 Seer Action |
+| Note | 可选底盘桥接；需启用 start_chassis_navigation。 |
+
+
+点击卡片中的 Type 可查看该接口的字段、调用示例与使用限制，也可展开左侧“接口说明与示例”按功能查阅。
