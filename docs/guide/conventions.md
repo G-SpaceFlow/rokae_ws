@@ -44,9 +44,11 @@ outline: [2, 4]
 
 - MoveL 的 TCP 位姿相对于机器人控制器配置的外部参考坐标系
   `CoordinateType::endInRef`。
-- `MoveL`、`MoveLRelative` 和 `MoveLTarget` 中的姿态使用 XYZ Euler RPY，单位
+- `MoveL` 和 `MoveLRelative` 中的姿态使用 XYZ Euler RPY，单位
   为 rad。
 - `/aide/upperlimb/tcp_pose/left_arm` 默认 `frame_id=left_external_ref`；右臂默认
   `frame_id=right_external_ref`。
+- `/aide/upperlimb/tcp_state/{arm}` 与 `tcp_pose` 同步发布，并额外包含 SDK
+  原始 XYZ Euler RPY 姿态。
 - Jacobian 是 SDK 返回的法兰相对机器人基座的 Jacobian。它与 `tcp_pose` 的
   TCP/外部参考坐标语义不同，使用前必须按具体控制算法确认工具和坐标变换。

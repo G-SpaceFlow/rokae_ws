@@ -6,7 +6,7 @@ const counts = computed(() => page.value.frontmatter.interfaceCounts || {})
 // Fixed page-level navigation. Never derive its contents from the URL hash.
 const groups = [
   { title: '📡 Topics', count: 'topics', open: true, items: [
-    { title: '上肢状态反馈', count: 'stateTopics', hash: '_2-1-上肢状态-topics-6' },
+    { title: '上肢状态反馈', count: 'stateTopics', hash: '_2-1-上肢状态-topics-8' },
     { title: '上肢 ServoJ', count: 'servoJTopics', hash: '_2-2-servoj-实时控制-topics-3' },
     { title: '上肢 ServoL', count: 'servoLTopics', hash: '_2-3-servol-实时控制-topics-10' },
     { title: '摄像头与视觉', count: 'visionTopics', hash: 'topic-vision' },
@@ -14,6 +14,7 @@ const groups = [
   ] },
   { title: '📦 Services', count: 'services', open: true, items: [
     { title: '上肢运动与状态', count: 'motionServices', hash: 'service-motion' },
+    { title: '笛卡尔拖动示教', count: 'teachServices', hash: 'service-teach' },
     { title: '初始化与上电', count: 'powerServices', hash: 'service-power' },
     { title: '回原', count: 'homeServices', hash: 'service-home' },
     { title: '灵巧手', count: 'handServices', hash: 'service-hand' },

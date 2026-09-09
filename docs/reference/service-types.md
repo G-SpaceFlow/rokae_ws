@@ -12,7 +12,7 @@ outline: [2, 3]
 
 ## `std_srvs/srv/Trigger`
 
-空请求，响应为 `success` 与 `message`。初始化、上电和回原服务均使用该类型，
+空请求，响应为 `success` 与 `message`。初始化、上电、回原和停止拖动示教均使用该类型，
 但动作语义由服务名称决定。
 
 ```bash
@@ -41,7 +41,7 @@ ros2 interface show rokae_interfaces/srv/MoveJByPath
 
 ## `rokae_interfaces/srv/MoveL`
 
-绝对 TCP 目标服务。请求包含 `[x,y,z,rx,ry,rz]`、七轴臂角、速度和过渡半径；
+绝对 TCP 目标服务。请求包含位置、完整 RPY 姿态、可选七轴臂角、速度和过渡半径；
 响应为 `success/message`。
 
 ```bash
@@ -59,14 +59,6 @@ ros2 interface show rokae_interfaces/srv/MoveL
 
 [查看相对 MoveL 示例](/api/movel#_8-2-相对-movel)
 
-<a id="rokae-interfaces-srv-moveltarget"></a>
-
-## `rokae_interfaces/srv/MoveLTarget`
-
-用于视觉目标运动。只替换目标位置及指定姿态轴，保留控制器当前七轴构型与臂角。
-
-[查看构型保持 MoveL](/api/movel#_8-3-构型保持-movel)
-
 <a id="rokae-interfaces-srv-getcartesianstate"></a>
 
 ## `rokae_interfaces/srv/GetCartesianState`
@@ -77,7 +69,20 @@ ros2 interface show rokae_interfaces/srv/MoveL
 ros2 interface show rokae_interfaces/srv/GetCartesianState
 ```
 
-[查看笛卡尔状态读取](/api/movel#_8-4-读取笛卡尔状态)
+[查看笛卡尔状态读取](/api/movel#_8-3-读取笛卡尔状态)
+
+<a id="rokae-interfaces-srv-cartesianteach"></a>
+
+## `rokae_interfaces/srv/CartesianTeach`
+
+启动单臂笛卡尔拖动示教。请求只包含 `enable_drag_button`；默认为
+`false`，拖动时必须按住末端按键。响应为 `success/message`。
+
+```bash
+ros2 interface show rokae_interfaces/srv/CartesianTeach
+```
+
+[查看拖动示教调用与安全说明](/api/cartesian-teach)
 
 <a id="rokae-interfaces-srv-controlhand"></a>
 

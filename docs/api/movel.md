@@ -22,17 +22,19 @@ Type: rokae_interfaces/srv/MoveL
 
 | 字段 | 类型 | 单位 | 说明 |
 | --- | --- | --- | --- |
-| `pose` | `float64[6]` | m, rad | `[x,y,z,rx,ry,rz]` 绝对 TCP 位姿 |
-| `elbow` | `float64` | rad | 七轴臂角 |
+| `position` | `float64[3]` | m | 外部参考系中的绝对 TCP XYZ |
+| `orientation_rpy` | `float64[3]` | rad | 必填的绝对 XYZ Euler RPY 姿态 |
+| `use_elbow` | `bool` | - | 是否应用请求中的七轴臂角 |
+| `elbow` | `float64` | rad | 七轴臂角；`use_elbow=false` 时忽略 |
 | `speed_mm_s` | `float64` | mm/s | TCP 线速度 |
 | `zone_mm` | `float64` | mm | 过渡半径，0 表示精确停点 |
 
-响应：`success` 和可诊断的 `message`。绝对接口显式构造新的 SDK
-`CartesianPosition` 并设置 `hasElbow=true`。
+响应：`success` 和可诊断的 `message`。驱动复制当前完整 SDK
+`CartesianPosition`，再设置请求中的绝对位置和完整姿态；默认保持臂角和构型。
 
 ```bash
 ros2 service call /aide/upperlimb/move_l/right_arm rokae_interfaces/srv/MoveL \
-  "{pose: [0.280941, -0.314533, -0.489353, -2.761879, 0.340152, -0.746153], elbow: 0.009431, speed_mm_s: 50.0, zone_mm: 0.0}"
+  "{position: [0.280941, -0.314533, -0.489353], orientation_rpy: [-2.761879, 0.340152, -0.746153], use_elbow: false, elbow: 0.0, speed_mm_s: 50.0, zone_mm: 0.0}"
 ```
 
 ## 8.2 相对 MoveL
@@ -60,26 +62,7 @@ ros2 service call /aide/upperlimb/move_l_relative/left_arm \
   "{translation: [0.0, 0.0, 0.01], orientation_override: [false, false, false], orientation_rpy: [0.0, 0.0, 0.0], speed_mm_s: 20.0, zone_mm: 0.0}"
 ```
 
-## 8.3 构型保持 MoveL
-
-```text
-/aide/upperlimb/move_l_target/left_arm
-/aide/upperlimb/move_l_target/right_arm
-Type: rokae_interfaces/srv/MoveLTarget
-```
-
-| 字段 | 类型 | 单位 | 说明 |
-| --- | --- | --- | --- |
-| `position` | `float64[3]` | m | 绝对 TCP XYZ |
-| `orientation_override` | `bool[3]` | - | 是否覆盖对应 RPY 轴 |
-| `orientation_rpy` | `float64[3]` | rad | 被覆盖轴的绝对姿态 |
-| `speed_mm_s` | `float64` | mm/s | TCP 线速度 |
-| `zone_mm` | `float64` | mm | 过渡半径 |
-
-该接口主要供视觉运动使用。它从当前 SDK 位姿复制臂角、构型和外部轴，只替换
-目标位置与指定姿态轴，避免视觉系统伪造七轴臂角。
-
-## 8.4 读取笛卡尔状态
+## 8.3 读取笛卡尔状态
 
 ```text
 /aide/upperlimb/get_cartesian_state/left_arm

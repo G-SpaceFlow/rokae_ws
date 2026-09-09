@@ -25,7 +25,7 @@ outline: [2, 4]
 - `motion_mode`：行为树视觉运动解释模式，当前支持 0 至 6。
 
 响应包含 `success`、`message`、`left_pose` 和 `right_pose`。视觉服务只计算或
-缓存目标，不直接调用 SDK；运动仍通过 `move_l_target` 等驱动接口执行。
+缓存目标，不直接调用 SDK；运动统一通过 `move_l` 驱动接口执行。
 
 固定的视觉依赖 topic 包括：
 

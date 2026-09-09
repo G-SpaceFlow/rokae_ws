@@ -20,6 +20,7 @@ export default {
       { text: 'ServoJ / ServoL', link: '/api/servoj' },
       { text: 'MoveAbsJ / MoveJ Path', link: '/api/moveabsj' },
       { text: 'MoveL', link: '/api/movel' },
+      { text: '笛卡尔拖动示教', link: '/api/cartesian-teach' },
       { text: '初始化上电', link: '/api/power' },
       { text: '回原', link: '/api/home' },
       { text: '灵巧手', link: '/api/hand' },

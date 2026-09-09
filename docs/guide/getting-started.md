@@ -31,6 +31,7 @@ ros2 service call /aide/upperlimb/initialize std_srvs/srv/Trigger "{}"
 | `start_move_server` | `true` | MoveAbsJ Action |
 | `start_movel_service` | `true` | MoveL 与笛卡尔状态服务 |
 | `start_hand_service` | `true` | 灵巧手服务 |
+| `start_cartesian_teach_service` | `true` | 左右臂笛卡尔拖动示教服务 |
 | `start_initializer_service` | `true` | 双臂初始化服务 |
 | `start_go_home_service` | `true` | 左、右和双臂回原服务 |
 | `start_kinematics_service` | `true` | 左、右臂 FK/IK 计算服务 |

@@ -16,12 +16,13 @@ function detailLink(name) {
     const operation = name.split('/')[3]
     const links = {
       joint_states: '/api/state#_5-1-joint-states', tcp_pose: '/api/state#_5-2-tcp-pose',
-      jacobian: '/api/state#_5-3-jacobian', servoj: '/api/servoj#_6-1-消息结构',
+      tcp_state: '/api/state#_5-3-tcp-state', jacobian: '/api/state#_5-4-jacobian',
+      servoj: '/api/servoj#_6-1-消息结构',
       servol: '/api/servoj#_6-4-servol-消息与坐标系', move_absj: '/api/moveabsj',
       movej_by_path: '/api/moveabsj#_7-6-movej-by-path-service',
       move_l: '/api/movel#_8-1-绝对-movel', move_l_relative: '/api/movel#_8-2-相对-movel',
-      move_l_target: '/api/movel#_8-3-构型保持-movel',
-      get_cartesian_state: '/api/movel#_8-4-读取笛卡尔状态',
+      get_cartesian_state: '/api/movel#_8-3-读取笛卡尔状态',
+      cartesian_teach: '/api/cartesian-teach',
       initialize: '/api/power', power_on: '/api/power', go_home: '/api/home',
       control_hand: '/api/hand', fk: '/api/kinematics#_18-1-forwardkinematics',
       ik: '/api/kinematics#_18-2-inversekinematics',

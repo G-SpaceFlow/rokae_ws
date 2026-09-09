@@ -22,6 +22,7 @@ outline: [2, 4]
 | 状态与 Jacobian | `src/rokae_driver/src/ros_pos_publisher.cpp` |
 | 初始化 | `src/rokae_driver/src/ros_robot_initializer_service.cpp` |
 | 灵巧手 | `src/rokae_driver/src/ros_hand_service.cpp` |
+| 笛卡尔拖动示教 | `src/rokae_driver/src/ros_cartesian_teach_service.cpp` |
 | 自定义接口定义 | `src/rokae_interfaces/msg/`、`src/rokae_interfaces/srv/` |
 | 部署参数 | `src/rokae_bringup/config/dual_arm.yaml` |
 | Launch | `src/rokae_bringup/launch/dual_arm.launch.py` |

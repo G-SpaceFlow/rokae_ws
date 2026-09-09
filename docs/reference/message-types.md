@@ -49,7 +49,7 @@ ros2 interface show std_msgs/msg/Float64MultiArray
 ros2 topic echo /aide/upperlimb/jacobian/left_arm --once
 ```
 
-[查看 Jacobian 示例](/api/state#_5-3-jacobian)
+[查看 Jacobian 示例](/api/state#_5-4-jacobian)
 
 <a id="geometry-msgs-msg-pose"></a>
 
@@ -87,6 +87,21 @@ ros2 interface show std_msgs/msg/String
 ```
 
 ## Rokae 自定义消息
+
+<a id="rokae-interfaces-msg-tcpstate"></a>
+
+### `rokae_interfaces/msg/TcpState`
+
+```text
+std_msgs/Header header
+geometry_msgs/Pose pose
+float64[3] orientation_rpy
+```
+
+与标准 `tcp_pose` 同步发布；`pose` 包含位置和四元数，
+`orientation_rpy` 是 SDK XYZ Euler `[roll,pitch,yaw]`，单位 rad。
+
+[查看 TCP 组合状态](/api/state#_5-3-tcp-state)
 
 <a id="rokae-interfaces-msg-servoj"></a>
 

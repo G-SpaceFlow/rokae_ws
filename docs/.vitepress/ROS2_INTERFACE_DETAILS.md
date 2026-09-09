@@ -3,7 +3,7 @@
 > 文档状态：当前工作区实现
 > ROS 版本：ROS 2 Humble
 > SDK：xCoreSDK v0.7.1.ar_6
-> 最后核对：2026-09-08
+> 最后核对：2026-09-09
 
 ## 1. 文档范围
 
@@ -23,6 +23,7 @@ ros_dual_arm_driver
   ├── FK / IK Services
   ├── MoveAbsJ Action
   ├── MoveL Services
+  ├── Cartesian Teach Services
   ├── ServoJ Realtime Topics
   ├── ServoL Realtime Topics
   ├── State Topics
@@ -41,15 +42,15 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 本节采用固定接口卡片，适合按名称快速检索。更完整的数据字段、参数约束与调用
 示例见后续章节。
 
-- [上肢状态 Topics（6）](#_2-1-上肢状态-topics-6)
+- [上肢状态 Topics（8）](#_2-1-上肢状态-topics-8)
 - [ServoJ 实时控制 Topics（3）](#_2-2-servoj-实时控制-topics-3)
 - [ServoL 实时控制 Topics（10）](#_2-3-servol-实时控制-topics-10)
 - [上肢运动 Actions（2）](#_2-4-上肢运动-actions-2)
-- [底层控制 Services（26）](#_2-5-底层控制-services-26)
+- [底层控制 Services（27）](#_2-5-底层控制-services-27)
 - [上层视觉目标接口](#_14-上层视觉目标接口)
 - [可选底盘桥接接口](#_15-可选底盘桥接接口)
 
-### 2.1 上肢状态 Topics（6）
+### 2.1 上肢状态 Topics（8）
 
 #### 1. joint_states/left_arm
 
@@ -91,7 +92,27 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 发布右臂当前 TCP 位姿 |
 | Note | 位置单位 m，姿态为四元数，默认参考帧 `right_external_ref` |
 
-#### 5. jacobian/left_arm
+#### 5. tcp_state/left_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/tcp_state/left_arm` |
+| Type | `rokae_interfaces/msg/TcpState` |
+| Direction | Publish |
+| Description | 发布左臂组合 TCP 状态 |
+| Note | 与 `tcp_pose` 同一采样；同时包含四元数和 SDK RPY（rad） |
+
+#### 6. tcp_state/right_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Topic Name | `/aide/upperlimb/tcp_state/right_arm` |
+| Type | `rokae_interfaces/msg/TcpState` |
+| Direction | Publish |
+| Description | 发布右臂组合 TCP 状态 |
+| Note | 与 `tcp_pose` 同一采样；同时包含四元数和 SDK RPY（rad） |
+
+#### 7. jacobian/left_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -101,7 +122,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 发布左臂当前位置的运动 Jacobian |
 | Note | SDK 行优先 `6 x 7` 法兰 Jacobian；无订阅者时跳过计算 |
 
-#### 6. jacobian/right_arm
+#### 8. jacobian/right_arm
 
 | 字段 | 值 |
 | --- | --- |
@@ -267,9 +288,9 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 右臂非实时关节空间点到点运动 |
 | Note | 只接受一个七关节位置点；支持反馈、取消、超时与结果检查 |
 
-### 2.5 底层控制 Services（26）
+### 2.5 底层控制 Services（27）
 
-#### 上肢运动与状态查询（11） {#service-motion}
+#### 上肢运动与状态查询（9） {#service-motion}
 
 ##### movej_by_path/left_arm
 
@@ -309,7 +330,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Type | `rokae_interfaces/srv/MoveL` |
 | Direction | Service Server |
 | Description | 左臂绝对 TCP 直线运动 |
-| Note | 显式接收 `[x,y,z,rx,ry,rz]` 和七轴臂角；阻塞至完成或失败 |
+| Note | 必须提供绝对位置和完整 RPY 姿态；七轴臂角可选；阻塞至完成或失败 |
 
 ##### move_l/right_arm
 
@@ -319,7 +340,7 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Type | `rokae_interfaces/srv/MoveL` |
 | Direction | Service Server |
 | Description | 右臂绝对 TCP 直线运动 |
-| Note | 显式接收 `[x,y,z,rx,ry,rz]` 和七轴臂角；阻塞至完成或失败 |
+| Note | 必须提供绝对位置和完整 RPY 姿态；七轴臂角可选；阻塞至完成或失败 |
 
 ##### move_l_relative/left_arm
 
@@ -341,26 +362,6 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Description | 右臂相对 TCP 直线运动 |
 | Note | 位移相对于外部参考系；保留当前臂角、构型和未覆盖姿态轴 |
 
-##### move_l_target/left_arm
-
-| 字段 | 值 |
-| --- | --- |
-| Service Name | `/aide/upperlimb/move_l_target/left_arm` |
-| Type | `rokae_interfaces/srv/MoveLTarget` |
-| Direction | Service Server |
-| Description | 左臂构型保持的绝对目标 MoveL |
-| Note | 主要供视觉使用；保留控制器当前臂角、构型和外部轴 |
-
-##### move_l_target/right_arm
-
-| 字段 | 值 |
-| --- | --- |
-| Service Name | `/aide/upperlimb/move_l_target/right_arm` |
-| Type | `rokae_interfaces/srv/MoveLTarget` |
-| Direction | Service Server |
-| Description | 右臂构型保持的绝对目标 MoveL |
-| Note | 主要供视觉使用；保留控制器当前臂角、构型和外部轴 |
-
 ##### get_cartesian_state/left_arm
 
 | 字段 | 值 |
@@ -380,6 +381,38 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 | Direction | Service Server |
 | Description | 查询右臂当前 TCP 位姿 |
 | Note | 返回 `[x,y,z,rx,ry,rz]`；运动控制锁被占用时查询失败 |
+
+#### 笛卡尔拖动示教（3） {#service-teach}
+
+##### cartesian_teach/left_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/cartesian_teach/left_arm` |
+| Type | `rokae_interfaces/srv/CartesianTeach` |
+| Direction | Service Server |
+| Description | 启动左臂笛卡尔空间拖动示教 |
+| Note | 固定最长 300 秒；默认必须按住末端拖动按键 |
+
+##### cartesian_teach/right_arm
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/cartesian_teach/right_arm` |
+| Type | `rokae_interfaces/srv/CartesianTeach` |
+| Direction | Service Server |
+| Description | 启动右臂笛卡尔空间拖动示教 |
+| Note | 固定最长 300 秒；默认必须按住末端拖动按键 |
+
+##### cartesian_teach/stop
+
+| 字段 | 值 |
+| --- | --- |
+| Service Name | `/aide/upperlimb/cartesian_teach/stop` |
+| Type | `std_srvs/srv/Trigger` |
+| Direction | Service Server |
+| Description | 停止当前活动的笛卡尔拖动示教 |
+| Note | 左右臂共用一个停止入口；启动服务为阻塞调用 |
 
 #### 灵巧手（2） {#service-hand}
 
@@ -580,10 +613,12 @@ ServoL 实时笛卡尔位姿流接口。阻抗和力矩控制尚未作为 ROS �
 
 - MoveL 的 TCP 位姿相对于机器人控制器配置的外部参考坐标系
   `CoordinateType::endInRef`。
-- `MoveL`、`MoveLRelative` 和 `MoveLTarget` 中的姿态使用 XYZ Euler RPY，单位
+- `MoveL` 和 `MoveLRelative` 中的姿态使用 XYZ Euler RPY，单位
   为 rad。
 - `/aide/upperlimb/tcp_pose/left_arm` 默认 `frame_id=left_external_ref`；右臂默认
   `frame_id=right_external_ref`。
+- `/aide/upperlimb/tcp_state/{arm}` 与 `tcp_pose` 同步发布，并额外包含 SDK
+  原始 XYZ Euler RPY 姿态。
 - Jacobian 是 SDK 返回的法兰相对机器人基座的 Jacobian。它与 `tcp_pose` 的
   TCP/外部参考坐标语义不同，使用前必须按具体控制算法确认工具和坐标变换。
 
@@ -613,6 +648,7 @@ ros2 service call /aide/upperlimb/initialize std_srvs/srv/Trigger "{}"
 | `start_move_server` | `true` | MoveAbsJ Action |
 | `start_movel_service` | `true` | MoveL 与笛卡尔状态服务 |
 | `start_hand_service` | `true` | 灵巧手服务 |
+| `start_cartesian_teach_service` | `true` | 左右臂笛卡尔拖动示教服务 |
 | `start_initializer_service` | `true` | 双臂初始化服务 |
 | `start_go_home_service` | `true` | 左、右和双臂回原服务 |
 | `start_kinematics_service` | `true` | 左、右臂 FK/IK 计算服务 |
@@ -664,7 +700,17 @@ ros2 topic echo /aide/upperlimb/joint_states/left_arm
 ros2 topic echo /aide/upperlimb/tcp_pose/right_arm
 ```
 
-### 5.3 `jacobian`
+### 5.3 `tcp_state`
+
+类型为 `rokae_interfaces/msg/TcpState`，与 `tcp_pose` 使用同一个采样值和
+时间戳。`pose` 保留标准位置与四元数，`orientation_rpy` 同时给出 SDK
+XYZ Euler `[roll,pitch,yaw]`，单位 rad：
+
+```bash
+ros2 topic echo /aide/upperlimb/tcp_state/left_arm
+```
+
+### 5.4 `jacobian`
 
 类型为 `std_msgs/msg/Float64MultiArray`。`data` 是按行优先展开的 `6 x 7`
 矩阵：
@@ -904,17 +950,19 @@ Type: rokae_interfaces/srv/MoveL
 
 | 字段 | 类型 | 单位 | 说明 |
 | --- | --- | --- | --- |
-| `pose` | `float64[6]` | m, rad | `[x,y,z,rx,ry,rz]` 绝对 TCP 位姿 |
-| `elbow` | `float64` | rad | 七轴臂角 |
+| `position` | `float64[3]` | m | 外部参考系中的绝对 TCP XYZ |
+| `orientation_rpy` | `float64[3]` | rad | 必填的绝对 XYZ Euler RPY 姿态 |
+| `use_elbow` | `bool` | - | 是否应用请求中的七轴臂角 |
+| `elbow` | `float64` | rad | 七轴臂角；`use_elbow=false` 时忽略 |
 | `speed_mm_s` | `float64` | mm/s | TCP 线速度 |
 | `zone_mm` | `float64` | mm | 过渡半径，0 表示精确停点 |
 
-响应：`success` 和可诊断的 `message`。绝对接口显式构造新的 SDK
-`CartesianPosition` 并设置 `hasElbow=true`。
+响应：`success` 和可诊断的 `message`。驱动复制当前完整 SDK
+`CartesianPosition`，再设置请求中的绝对位置和完整姿态；默认保持臂角和构型。
 
 ```bash
 ros2 service call /aide/upperlimb/move_l/right_arm rokae_interfaces/srv/MoveL \
-  "{pose: [0.280941, -0.314533, -0.489353, -2.761879, 0.340152, -0.746153], elbow: 0.009431, speed_mm_s: 50.0, zone_mm: 0.0}"
+  "{position: [0.280941, -0.314533, -0.489353], orientation_rpy: [-2.761879, 0.340152, -0.746153], use_elbow: false, elbow: 0.0, speed_mm_s: 50.0, zone_mm: 0.0}"
 ```
 
 ### 8.2 相对 MoveL
@@ -942,26 +990,7 @@ ros2 service call /aide/upperlimb/move_l_relative/left_arm \
   "{translation: [0.0, 0.0, 0.01], orientation_override: [false, false, false], orientation_rpy: [0.0, 0.0, 0.0], speed_mm_s: 20.0, zone_mm: 0.0}"
 ```
 
-### 8.3 构型保持 MoveL
-
-```text
-/aide/upperlimb/move_l_target/left_arm
-/aide/upperlimb/move_l_target/right_arm
-Type: rokae_interfaces/srv/MoveLTarget
-```
-
-| 字段 | 类型 | 单位 | 说明 |
-| --- | --- | --- | --- |
-| `position` | `float64[3]` | m | 绝对 TCP XYZ |
-| `orientation_override` | `bool[3]` | - | 是否覆盖对应 RPY 轴 |
-| `orientation_rpy` | `float64[3]` | rad | 被覆盖轴的绝对姿态 |
-| `speed_mm_s` | `float64` | mm/s | TCP 线速度 |
-| `zone_mm` | `float64` | mm | 过渡半径 |
-
-该接口主要供视觉运动使用。它从当前 SDK 位姿复制臂角、构型和外部轴，只替换
-目标位置与指定姿态轴，避免视觉系统伪造七轴臂角。
-
-### 8.4 读取笛卡尔状态
+### 8.3 读取笛卡尔状态
 
 ```text
 /aide/upperlimb/get_cartesian_state/left_arm
@@ -1265,7 +1294,7 @@ state、实际运动状态、控制模式和错误，而不是只发布一个 `m
 - `motion_mode`：行为树视觉运动解释模式，当前支持 0 至 6。
 
 响应包含 `success`、`message`、`left_pose` 和 `right_pose`。视觉服务只计算或
-缓存目标，不直接调用 SDK；运动仍通过 `move_l_target` 等驱动接口执行。
+缓存目标，不直接调用 SDK；运动统一通过 `move_l` 驱动接口执行。
 
 固定的视觉依赖 topic 包括：
 
@@ -1314,10 +1343,11 @@ state、实际运动状态、控制模式和错误，而不是只发布一个 `m
 3. 清空工作空间，操作员保持急停可触及。
 4. MoveAbsJ 前确认关节顺序、弧度单位和控制器软限位。
 5. MoveL 前确认外部参考坐标系、TCP、工具负载、臂角和姿态约定。
-6. ServoJ 必须从当前关节反馈开始连续发送，不能直接发布远离当前位置的目标。
-7. ServoL 输入是 TCP 相对外部参考系位姿；驱动转换到法兰相对基坐标系后发送。
-8. 不要同时运行绕过 ROS 驱动的 SDK 控制程序。
-9. YAML 中的限制值只是软件请求边界，不能替代控制器安全配置、碰撞检测或
+6. 拖动示教会切换为手动模式并下电；启动前确认工具负载，优先使用默认的按键保护。
+7. ServoJ 必须从当前关节反馈开始连续发送，不能直接发布远离当前位置的目标。
+8. ServoL 输入是 TCP 相对外部参考系位姿；驱动转换到法兰相对基坐标系后发送。
+9. 不要同时运行绕过 ROS 驱动的 SDK 控制程序。
+10. YAML 中的限制值只是软件请求边界，不能替代控制器安全配置、碰撞检测或
    风险评估。
 
 ## 17. 实现位置
@@ -1337,6 +1367,7 @@ state、实际运动状态、控制模式和错误，而不是只发布一个 `m
 | 状态与 Jacobian | `src/rokae_driver/src/ros_pos_publisher.cpp` |
 | 初始化 | `src/rokae_driver/src/ros_robot_initializer_service.cpp` |
 | 灵巧手 | `src/rokae_driver/src/ros_hand_service.cpp` |
+| 笛卡尔拖动示教 | `src/rokae_driver/src/ros_cartesian_teach_service.cpp` |
 | 自定义接口定义 | `src/rokae_interfaces/msg/`、`src/rokae_interfaces/srv/` |
 | 部署参数 | `src/rokae_bringup/config/dual_arm.yaml` |
 | Launch | `src/rokae_bringup/launch/dual_arm.launch.py` |
@@ -1409,3 +1440,26 @@ python3 /home/niic/rokae_ws/src/test/test_fk_ik.py
 
 程序顶部使用 `ARM_TYPE=1` 选择左臂，`ARM_TYPE=2` 选择右臂。测试不会上电或
 控制机械臂运动。
+
+## 19. 笛卡尔拖动示教服务
+
+左右臂分别提供启动服务，并共用一个停止服务。启动请求使用
+`rokae_interfaces/srv/CartesianTeach`，只包含 `enable_drag_button`：默认
+`false`（0），拖动时必须按住末端拖动按键；设为 `true`（1）后无需按住按键，
+风险更高。示教最长时间固定为 300 秒，不提供时间请求字段。
+
+```bash
+ros2 service call /aide/upperlimb/cartesian_teach/left_arm \
+  rokae_interfaces/srv/CartesianTeach "{}"
+```
+
+启动服务是阻塞调用。需要提前结束时，在另一个终端调用：
+
+```bash
+ros2 service call /aide/upperlimb/cartesian_teach/stop \
+  std_srvs/srv/Trigger "{}"
+```
+
+服务启动前会验证工具负载和反馈，并在示教期间检查相对起点位移、旋转、TCP
+线速度和关节速度。它遵循 SDK 示例切换为手动模式并下电；结束时关闭拖动，
+但不会自动切回自动模式或重新上电。

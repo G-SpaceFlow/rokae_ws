@@ -47,8 +47,8 @@ export default {
             link: '/ROS2_INTERFACE_REFERENCE#_2-api-快速查询',
           },
           {
-            text: 'Topics（6）',
-            link: '/ROS2_INTERFACE_REFERENCE#_2-1-上肢状态-topics-6',
+            text: 'Topics（8）',
+            link: '/ROS2_INTERFACE_REFERENCE#_2-1-上肢状态-topics-8',
           },
           {
             text: 'ServoJ Topics（3）',
@@ -63,8 +63,8 @@ export default {
             link: '/ROS2_INTERFACE_REFERENCE#_2-4-上肢运动-actions-2',
           },
           {
-            text: 'Services（26）',
-            link: '/ROS2_INTERFACE_REFERENCE#_2-5-底层控制-services-26',
+            text: 'Services（27）',
+            link: '/ROS2_INTERFACE_REFERENCE#_2-5-底层控制-services-27',
           },
           {
             text: '状态数据详解',

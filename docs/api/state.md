@@ -30,15 +30,25 @@ ros2 topic echo /aide/upperlimb/joint_states/left_arm
 
 类型为 `geometry_msgs/msg/PoseStamped`：
 
-- `position`：TCP 的 XYZ，单位 m。
-- `orientation`：驱动把 SDK 位姿转换成四元数。
+- `pose.position`：TCP 的 XYZ，单位 m。
+- `pose.orientation`：驱动把 SDK 位姿转换成四元数。
 - `header.frame_id`：对应手臂配置的外部参考坐标系名称。
 
 ```bash
 ros2 topic echo /aide/upperlimb/tcp_pose/right_arm
 ```
 
-## 5.3 `jacobian`
+## 5.3 `tcp_state`
+
+类型为 `rokae_interfaces/msg/TcpState`，与 `tcp_pose` 使用同一个采样值和
+时间戳。`pose` 保留标准位置与四元数，`orientation_rpy` 同时给出 SDK
+XYZ Euler `[roll,pitch,yaw]`，单位 rad：
+
+```bash
+ros2 topic echo /aide/upperlimb/tcp_state/left_arm
+```
+
+## 5.4 `jacobian`
 
 类型为 `std_msgs/msg/Float64MultiArray`。`data` 是按行优先展开的 `6 x 7`
 矩阵：
